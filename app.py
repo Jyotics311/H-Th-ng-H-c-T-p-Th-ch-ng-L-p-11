@@ -21,7 +21,10 @@ def get_gspread_client():
 def save_log_to_sheet(data):
     """Lưu 1 dòng dữ liệu lên Google Sheets"""
     client = get_gspread_client()
-    sheet = client.open_by_key(SHEET_ID).sheet1
+    # Mở file bằng ID, sau đó lấy worksheet đầu tiên (index = 0)
+    spreadsheet = client.open_by_key(SHEET_ID)
+    sheet = spreadsheet.get_worksheet(0) 
+    
     row = [
         data['Student'], data['Class'], data['School'], data['Email'],
         data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
@@ -32,7 +35,10 @@ def save_log_to_sheet(data):
 def load_logs_from_sheet():
     """Tải toàn bộ dữ liệu từ Google Sheets"""
     client = get_gspread_client()
-    sheet = client.open_by_key(SHEET_ID).sheet1
+    # Lấy worksheet theo index 0 thay vì gọi .sheet1
+    spreadsheet = client.open_by_key(SHEET_ID)
+    sheet = spreadsheet.get_worksheet(0)
+    
     records = sheet.get_all_records()
     if records:
         return pd.DataFrame(records)

@@ -10,7 +10,7 @@ from google.oauth2.service_account import Credentials
 # CẤU HÌNH GOOGLE SHEETS
 # ==========================================
 # 🛑 BẠN HÃY DÁN MÃ ID CỦA FILE GOOGLE SHEET VÀO ĐÂY:
-SHEET_ID = "DAN_MA_ID_GOOGLE_SHEET_CUA_BAN_VAO_DAY"
+SHEET_ID = "1I9VdzBH7j-ydr_v9Q2CXdYtenV9ethAstfYGHa5bL-E"
 
 @st.cache_resource
 def get_gspread_client():

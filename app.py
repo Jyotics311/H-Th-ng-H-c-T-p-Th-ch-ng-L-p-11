@@ -295,13 +295,11 @@ if tab3 is not None:
                     summary_df['Tỷ lệ đúng (%)'] = round((summary_df['Số_câu_đúng'] / summary_df['Số_câu_đã_làm']) * 100, 1)
                     summary_df['Năng_lực_hiện_tại'] = round(summary_df['Năng_lực_hiện_tại'], 2)
                     st.dataframe(summary_df, use_container_width=True)
-                    
+
                     st.markdown("---")
-                    st.markdown("#### 2. Phân tích chi tiết theo Học sinh")
-                    st.markdown("---")
-                    st.markdown("#### 2. Phân tích chi tiết và Chẩn đoán lỗ hổng")
+                    st.markdown("#### 2. Phân tích chi tiết ")
                     student_list = summary_df['Student'].tolist()
-                    selected_student = st.selectbox("👤 Chọn tên học sinh để xem hồ sơ năng lực chi tiết:", student_list)
+                    selected_student = st.selectbox("👤 Chọn tên học sinh để xem chi tiết:", student_list)
                     
                     if selected_student:
                         # Trích xuất toàn bộ lịch sử của học sinh được chọn
@@ -323,7 +321,7 @@ if tab3 is not None:
                         with col2:
                             skill_data = my_logs.groupby('Skill')['Correct'].mean() * 100
                             skill_df = skill_data.reset_index()
-                            skill_df.columns = ['Mã Kỹ Năng', 'Tỷ lệ đúng (%)']
+                            skill_df.columns = ['Kỹ Năng', 'Tỷ lệ đúng (%)']
                             fig_skill = px.bar(skill_df, x='Mã Kỹ Năng', y='Tỷ lệ đúng (%)', 
                                                title='Mức độ làm chủ Kỹ năng',
                                                color='Tỷ lệ đúng (%)', color_continuous_scale='RdYlGn')
@@ -338,7 +336,7 @@ if tab3 is not None:
                         st.dataframe(comp_data, use_container_width=True)
 
                         # --- GIẤU BẢNG DỮ LIỆU THÔ VÀO EXPANDER ĐỂ UI ĐẸP HƠN ---
-                        with st.expander("🔎 Bấm vào đây để xem chi tiết từng lượt tương tác (Raw Data)"):
+                        with st.expander("🔎 Bấm vào đây để xem chi tiết "):
                             student_details = my_logs.sort_values(by='Timestamp', ascending=False)
                             st.dataframe(student_details, use_container_width=True)
                 else:

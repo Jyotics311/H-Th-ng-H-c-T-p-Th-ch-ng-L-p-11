@@ -298,17 +298,52 @@ if tab3 is not None:
                     
                     st.markdown("---")
                     st.markdown("#### 2. Phân tích chi tiết theo Học sinh")
+                    st.markdown("---")
+                    st.markdown("#### 2. Phân tích chi tiết và Chẩn đoán lỗ hổng")
                     student_list = summary_df['Student'].tolist()
-                    selected_student = st.selectbox("Tên học sinh cần xem lộ trình chi tiết:", student_list)
+                    selected_student = st.selectbox("👤 Chọn tên học sinh để xem hồ sơ năng lực chi tiết:", student_list)
                     
                     if selected_student:
-                        student_details = class_logs[class_logs['Student'] == selected_student].sort_values(by='Timestamp', ascending=False)
-                        st.write(f"Nhật ký tương tác AI của học sinh **{selected_student}**:")
-                        st.dataframe(student_details, use_container_width=True)
+                        # Trích xuất toàn bộ lịch sử của học sinh được chọn
+                        my_logs = class_logs[class_logs['Student'] == selected_student].copy()
+                        
+                        # --- VẼ BIỂU ĐỒ (Giống Tab 2) ---
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            my_logs['Question_Num'] = range(1, len(my_logs) + 1)
+                            fig_theta = px.line(my_logs, x='Question_Num', y='Theta_Before', 
+                                                title=f'Tiến trình phát triển Năng lực của {selected_student}',
+                                                markers=True, text='Correct',
+                                                labels={'Theta_Before': 'Mức Năng lực', 'Question_Num': 'Thứ tự câu hỏi'})
+                            fig_theta.update_traces(textposition="bottom right")
+                            fig_theta.update_xaxes(dtick=1) 
+                            st.plotly_chart(fig_theta, use_container_width=True)
+                            
+                        with col2:
+                            skill_data = my_logs.groupby('Skill')['Correct'].mean() * 100
+                            skill_df = skill_data.reset_index()
+                            skill_df.columns = ['Mã Kỹ Năng', 'Tỷ lệ đúng (%)']
+                            fig_skill = px.bar(skill_df, x='Mã Kỹ Năng', y='Tỷ lệ đúng (%)', 
+                                               title='Mức độ làm chủ Kỹ năng',
+                                               color='Tỷ lệ đúng (%)', color_continuous_scale='RdYlGn')
+                            st.plotly_chart(fig_skill, use_container_width=True)
+                        
+                        # --- BẢNG ĐÁNH GIÁ NĂNG LỰC ---
+                        st.markdown(f"**Đánh giá Năng lực Cốt lõi (GDPT 2018) của {selected_student}:**")
+                        comp_data = my_logs.groupby('Competency').agg(
+                            Tổng_Câu=('Item_ID', 'count'), Số_Câu_Đúng=('Correct', 'sum')
+                        )
+                        comp_data['Độ Thành Thạo (%)'] = round((comp_data['Số_Câu_Đúng'] / comp_data['Tổng_Câu']) * 100, 1)
+                        st.dataframe(comp_data, use_container_width=True)
+
+                        # --- GIẤU BẢNG DỮ LIỆU THÔ VÀO EXPANDER ĐỂ UI ĐẸP HƠN ---
+                        with st.expander("🔎 Bấm vào đây để xem chi tiết từng lượt tương tác (Raw Data)"):
+                            student_details = my_logs.sort_values(by='Timestamp', ascending=False)
+                            st.dataframe(student_details, use_container_width=True)
                 else:
                     st.warning("Chưa có học sinh nào nhập tên lớp vào hệ thống.")
             else:
                 st.warning(f"⚠️ Chưa có dữ liệu của học sinh nào thuộc trường **{teacher_school}** nộp bài lên hệ thống.")
         else:
             st.info("Hệ thống Data Đám mây đang trống.")
-            

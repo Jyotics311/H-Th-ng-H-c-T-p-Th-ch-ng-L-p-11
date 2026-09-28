@@ -105,22 +105,24 @@ if not st.session_state.logged_in:
         with st.form("login_form"):
             role = st.selectbox("Đăng nhập với tư cách:", ["Học sinh", "Giáo viên"])
             name = st.text_input("Họ và tên (*)", placeholder="Nhập họ và tên đầy đủ")
-            # Sửa lại yêu cầu lớp học: Bắt buộc cho cả Giáo viên
-            cls = st.text_input("Lớp học (*)", placeholder="Học sinh nhập lớp của mình, Giáo viên nhập lớp muốn quản lý (Ví dụ: 11A1)")
+            # Cập nhật: Giáo viên không cần nhập lớp lúc đăng nhập
+            cls = st.text_input("Lớp học", placeholder="Bắt buộc với Học sinh. Giáo viên có thể bỏ qua.")
             school = st.text_input("Trường học (*)", placeholder="Nhập chính xác tên trường...")
             email = st.text_input("Email (*)", placeholder="Email liên hệ")
             
             submit = st.form_submit_button("🚀 Vào Hệ Thống", use_container_width=True)
             if submit:
-                # Bắt buộc phải nhập cả cls (Lớp)
-                if name and cls and school and email:
+                # Bắt lỗi nếu là Học sinh mà quên nhập lớp
+                if role == "Học sinh" and not cls:
+                    st.error("Học sinh vui lòng nhập Lớp học của mình!")
+                elif name and school and email:
                     st.session_state.logged_in = True
-                    st.session_state.user_info = {"role": role, "name": name, "class": cls, "school": school, "email": email}
+                    # Nếu là Giáo viên không nhập lớp, lưu rỗng để xử lý sau
+                    st.session_state.user_info = {"role": role, "name": name, "class": cls if cls else "", "school": school, "email": email}
                     st.rerun()
                 else:
                     st.error("Vui lòng điền đầy đủ các thông tin bắt buộc (*)")
     st.stop()
-
 # ==========================================
 # GIAO DIỆN CHÍNH
 # ==========================================
@@ -260,41 +262,53 @@ with tab2:
 # ----------------- TAB 3: QUẢN LÝ KẾT QUẢ (CHỈ GIÁO VIÊN) -----------------
 if tab3 is not None:
     with tab3:
-        teacher_class = st.session_state.user_info['class']
         teacher_school = st.session_state.user_info['school']
-        
-        st.markdown(f"### 👨‍🏫 Bảng Điều Khiển: Lớp {teacher_class} - {teacher_school}")
+        st.markdown(f"### 👨‍🏫 Bảng Điều Khiển: Trường {teacher_school}")
         
         all_logs = load_logs_from_sheet()
         
         if not all_logs.empty:
-            # === LÕI BẢO MẬT: CHỈ LỌC DỮ LIỆU CỦA ĐÚNG TRƯỜNG VÀ LỚP ===
-            class_logs = all_logs[(all_logs['School'] == teacher_school) & (all_logs['Class'] == teacher_class)]
+            # 1. BỘ LỌC CẤP TRƯỜNG: Chỉ lấy data của trường giáo viên đang dạy
+            school_logs = all_logs[all_logs['School'] == teacher_school]
             
-            if not class_logs.empty:
-                st.markdown("#### 1. Tổng quan Lớp học")
-                # Lọc xong thì groupby theo Học sinh
-                summary_df = class_logs.groupby(['Student']).agg(
-                    Số_câu_đã_làm=('Item_ID', 'count'),
-                    Số_câu_đúng=('Correct', 'sum'),
-                    Năng_lực_hiện_tại=('Theta_Before', 'last')
-                ).reset_index()
+            if not school_logs.empty:
+                # 2. TẠO MENU CHỌN LỚP ĐỘNG
+                # Hệ thống tự quét tìm các lớp có trong trường này, loại bỏ ô trống và sắp xếp A-Z
+                available_classes = [c for c in school_logs['Class'].unique() if str(c).strip() != ""]
+                available_classes.sort()
                 
-                summary_df['Tỷ lệ đúng (%)'] = round((summary_df['Số_câu_đúng'] / summary_df['Số_câu_đã_làm']) * 100, 1)
-                summary_df['Năng_lực_hiện_tại'] = round(summary_df['Năng_lực_hiện_tại'], 2)
-                st.dataframe(summary_df, use_container_width=True)
-                
-                st.markdown("---")
-                st.markdown("#### 2. Phân tích chi tiết theo Học sinh")
-                student_list = summary_df['Student'].tolist()
-                selected_student = st.selectbox("Chọn một học sinh để phân tích lộ trình học:", student_list)
-                
-                if selected_student:
-                    student_details = class_logs[class_logs['Student'] == selected_student].sort_values(by='Timestamp', ascending=False)
-                    st.write(f"Nhật ký làm bài của học sinh **{selected_student}**:")
-                    st.dataframe(student_details, use_container_width=True)
+                if available_classes:
+                    st.markdown("#### 🔍 Bộ lọc Dữ liệu")
+                    selected_class = st.selectbox("📚 Chọn lớp học muốn xem kết quả:", available_classes)
+                    st.markdown("---")
+                    
+                    # 3. BỘ LỌC CẤP LỚP: Lấy data của lớp đã chọn
+                    class_logs = school_logs[school_logs['Class'] == selected_class]
+                    
+                    st.markdown(f"#### 1. Tổng quan Lớp {selected_class}")
+                    summary_df = class_logs.groupby(['Student']).agg(
+                        Số_câu_đã_làm=('Item_ID', 'count'),
+                        Số_câu_đúng=('Correct', 'sum'),
+                        Năng_lực_hiện_tại=('Theta_Before', 'last')
+                    ).reset_index()
+                    
+                    summary_df['Tỷ lệ đúng (%)'] = round((summary_df['Số_câu_đúng'] / summary_df['Số_câu_đã_làm']) * 100, 1)
+                    summary_df['Năng_lực_hiện_tại'] = round(summary_df['Năng_lực_hiện_tại'], 2)
+                    st.dataframe(summary_df, use_container_width=True)
+                    
+                    st.markdown("---")
+                    st.markdown("#### 2. Phân tích chi tiết theo Học sinh")
+                    student_list = summary_df['Student'].tolist()
+                    selected_student = st.selectbox("Tên học sinh cần xem lộ trình chi tiết:", student_list)
+                    
+                    if selected_student:
+                        student_details = class_logs[class_logs['Student'] == selected_student].sort_values(by='Timestamp', ascending=False)
+                        st.write(f"Nhật ký tương tác AI của học sinh **{selected_student}**:")
+                        st.dataframe(student_details, use_container_width=True)
+                else:
+                    st.warning("Chưa có học sinh nào nhập tên lớp vào hệ thống.")
             else:
-                st.warning(f"⚠️ Chưa có dữ liệu của học sinh nào thuộc lớp **{teacher_class}**, trường **{teacher_school}** nộp bài lên hệ thống.")
+                st.warning(f"⚠️ Chưa có dữ liệu của học sinh nào thuộc trường **{teacher_school}** nộp bài lên hệ thống.")
         else:
             st.info("Hệ thống Data Đám mây đang trống.")
             

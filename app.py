@@ -296,9 +296,9 @@ if tab3 is not None:
                     summary_df['Năng_lực_hiện_tại'] = round(summary_df['Năng_lực_hiện_tại'], 2)
                     st.dataframe(summary_df, use_container_width=True)
 st.markdown("---")
-                    st.markdown("#### 2. Phân tích chi tiết ")
+                    st.markdown("#### 2. Phân tích chi tiết và Chẩn đoán lỗ hổng")
                     student_list = summary_df['Student'].tolist()
-                    selected_student = st.selectbox("👤 Chọn tên học sinh để xem chi tiết:", student_list)
+                    selected_student = st.selectbox("👤 Chọn tên học sinh để xem hồ sơ năng lực chi tiết:", student_list)
                     
                     if selected_student:
                         # Trích xuất toàn bộ lịch sử của học sinh được chọn

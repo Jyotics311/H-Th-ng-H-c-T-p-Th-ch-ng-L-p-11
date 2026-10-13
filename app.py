@@ -257,8 +257,7 @@ with tab1:
 with tab2:
     st.markdown("### 📊 Biểu đồ Năng lực & Chẩn đoán Lỗ hổng")
     all_logs = load_logs_from_sheet()
-    
-   if not my_logs.empty:
+if not my_logs.empty:
             # SỬA TẠI ĐÂY: Thay dấu phẩy thành dấu chấm để Python hiểu được số thập phân
             my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
             my_logs['Correct'] = pd.to_numeric(my_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)

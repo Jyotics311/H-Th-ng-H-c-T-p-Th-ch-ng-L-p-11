@@ -190,15 +190,22 @@ with tab1:
                     # CẮT LẤY TOP 15 CÂU TỐT NHẤT VÀ BỐC RANDOM 1 CÂU (Tránh AI bốc mãi 1 câu đỉnh nhất)
                     top_pool = sorted_q.head(15)
                     st.session_state.current_item = top_pool.sample(1).iloc[0]
-            else:
-                st.session_state.current_item = "DONE"
-
-        q = st.session_state.current_item
-        
-        if isinstance(q, str) and q == "DONE":
-            st.success("Hệ thống đã hết câu hỏi phù hợp cho em trong ngân hàng.")
-        elif q is not None:
-            st.markdown(f"### Câu hỏi:\n{q['question_text']}")
+          else:
+                    # --- THUẬT TOÁN THÍCH ỨNG: KẾT HỢP ĐỘ KHÓ (b) VÀ FISHER INFO ---
+                    
+                    # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)
+                    available_q['distance'] = (available_q['param_b'] - st.session_state.theta).abs()
+                    
+                    # 2. Ép hệ thống chỉ giữ lại 20 câu có độ khó GẦN NHẤT với học sinh lúc này
+                    closest_q = available_q.nsmallest(20, 'distance').copy()
+                    
+                    # 3. Tính Fisher Information trên 20 câu phù hợp này để tìm câu tốt nhất
+                    closest_q['info'] = closest_q.apply(
+                        lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
+                    )
+                    
+                    # 4. Lấy Top 5 câu tốt nhất và bốc ngẫu nhiên (Chống lặp)
+                    st.session_state.current_item = closest_q.nlargest(5, 'info').sample(1).iloc[0]
             
             options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
             display_options = [f"A. {options_dict['A']}", f"B. {options_dict['B']}", f"C. {options_dict['C']}", f"D. {options_dict['D']}"]

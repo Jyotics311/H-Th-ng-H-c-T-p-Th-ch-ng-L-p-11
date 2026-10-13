@@ -9,30 +9,34 @@ from google.oauth2.service_account import Credentials
 # ==========================================
 # 1. CẤU HÌNH GOOGLE SHEETS
 # ==========================================
-# 🛑 THAY MÃ ID CỦA BẠN VÀO ĐÂY:
 SHEET_ID = "1I9VdzBH7j-ydr_v9Q2CXdYtenV9ethAstfYGHa5bL-E"
 
 @st.cache_resource
-def get_google_sheet():
+def get_gspread_client():
+    """Khởi tạo và cache client kết nối Google Sheets"""
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
-    client = gspread.authorize(creds)
-    return client.open_by_key(SHEET_ID).get_worksheet(0)
+    return gspread.authorize(creds)
 
 def save_log_to_sheet(data):
-    sheet = get_google_sheet()
-    row = [
-        data['Student'], data['Class'], data['School'], data['Email'],
-        data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
-        data['Theta_Before'], data['Correct'], data['Timestamp']
-    ]
-    sheet.append_row(row)
+    try:
+        client = get_gspread_client()
+        # Mặc định lưu vào Sheet đầu tiên (index 0) - Sheet "Logs"
+        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
+        row = [
+            data['Student'], data['Class'], data['School'], data['Email'],
+            data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
+            data['Theta_Before'], data['Correct'], data['Timestamp']
+        ]
+        sheet.append_row(row)
+    except Exception as e:
+        st.toast(f"Lỗi lưu log: {e}", icon="⚠️")
 
 def load_logs_from_sheet():
     try:
         client = get_gspread_client()
-        spreadsheet = client.open_by_key(SHEET_ID)
-        sheet = spreadsheet.get_worksheet(0)
+        # Lấy dữ liệu từ Sheet đầu tiên (index 0)
+        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
         data = sheet.get_all_values()
         if len(data) > 1:
             headers = data[0]
@@ -42,10 +46,37 @@ def load_logs_from_sheet():
         else:
             return pd.DataFrame()
     except Exception as e:
+        st.error(f"Lỗi tải dữ liệu logs: {e}")
         return pd.DataFrame()
 
 # ==========================================
-# 2. THUẬT TOÁN AI (IRT & FISHER)
+# 2. TẢI NGÂN HÀNG CÂU HỎI
+# ==========================================
+@st.cache_data(ttl=3600) # Cache 1 tiếng để web chạy nhanh
+def load_question_bank():
+    # --- NẾU BẠN DÙNG FILE CSV LÊN GITHUB, GIỮ NGUYÊN BLOCK NÀY ---
+    try:
+        # Nếu để trong thư mục gốc
+        return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
+    except FileNotFoundError:
+        st.error("LỖI: Không tìm thấy file 'nganhang_lop11_chuan_hoa_1000.csv' trên hệ thống. Hãy kiểm tra lại thư mục hoặc GitHub!")
+        st.stop()
+        
+    # --- NẾU BẠN CHUYỂN NGÂN HÀNG LÊN GOOGLE SHEETS (TỐT NHẤT), BỎ DẤU # Ở BLOCK DƯỚI VÀ XÓA BLOCK TRÊN ---
+    # try:
+    #     client = get_gspread_client()
+    #     sheet = client.open_by_key(SHEET_ID).worksheet("NganHangCauHoi") # Tên sheet chứa câu hỏi
+    #     data = sheet.get_all_records()
+    #     return pd.DataFrame(data)
+    # except Exception as e:
+    #     st.error(f"LỖI TẢI NGÂN HÀNG TỪ GOOGLE SHEETS: {e}")
+    #     st.stop()
+
+# Đọc dữ liệu vào DataFrame
+df = load_question_bank()
+
+# ==========================================
+# 3. THUẬT TOÁN AI (IRT & FISHER)
 # ==========================================
 def p_irt(theta, a, b):
     return 1 / (1 + np.exp(np.clip(-a * (theta - b), -10, 10)))
@@ -67,7 +98,7 @@ def update_theta_mle(theta_old, history):
     return np.clip(theta_old + (num / den), -3.0, 3.0) if den > 0 else theta_old
 
 # ==========================================
-# 3. KHỞI TẠO ỨNG DỤNG
+# 4. KHỞI TẠO ỨNG DỤNG
 # ==========================================
 st.set_page_config(page_title="AI Thích Ứng - Lớp 11", layout="wide", page_icon="🧠")
 st.markdown("""<style>.stRadio label {font-size: 18px !important; line-height: 1.6;}</style>""", unsafe_allow_html=True)
@@ -80,18 +111,8 @@ for key in ['history', 'asked_ids', 'recent_skills']:
     if key not in st.session_state: st.session_state[key] = []
 if 'theta' not in st.session_state: st.session_state.theta = 0.0
 
-@st.cache_data
-def load_question_bank():
-    try:
-        return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
-    except:
-        st.error("LỖI: Không tìm thấy file ngân hàng câu hỏi.")
-        st.stop()
-
-df = load_question_bank()
-
 # ==========================================
-# 4. GIAO DIỆN ĐĂNG NHẬP
+# 5. GIAO DIỆN ĐĂNG NHẬP
 # ==========================================
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -116,7 +137,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==========================================
-# 5. GIAO DIỆN CHÍNH
+# 6. GIAO DIỆN CHÍNH
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2e6c80;'>Hệ thống Học tập Thích ứng Lớp 11</h1>", unsafe_allow_html=True)
 

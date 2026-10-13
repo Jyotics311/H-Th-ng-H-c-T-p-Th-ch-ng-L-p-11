@@ -143,30 +143,43 @@ with tab1:
         st.progress(len(st.session_state.asked_ids) / MAX_QUESTIONS)
         
         if st.session_state.current_item is None:
+            # BƯỚC 1: LỌC BỎ 100% CÁC CÂU HỎI ĐÃ TỪNG LÀM TRONG BÀI TEST NÀY
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
-            # Thuật toán chống lặp kỹ năng (Nhớ 2 kỹ năng gần nhất)
-            if len(st.session_state.recent_skills) > 0:
-                mask = ~available_q['skill_id'].isin(st.session_state.recent_skills[-2:])
-                if mask.sum() > 5:
-                    available_q = available_q[mask].copy()
-
             if not available_q.empty:
-                if len(st.session_state.history) < 4:
+                # BƯỚC 2: LUẬT BÀI TRỪ KỸ NĂNG NGHIÊM NGẶT (STRICT SKILL BANNING)
+                if st.session_state.last_skill is not None:
+                    # Ép hệ thống lọc bỏ toàn bộ câu hỏi có cùng mã Kỹ năng với câu vừa làm
+                    temp_q = available_q[available_q['skill_id'] != st.session_state.last_skill]
+                    
+                    # Nếu lọc xong mà vẫn còn câu hỏi, thì áp dụng kho câu hỏi mới này
+                    if not temp_q.empty:
+                        available_q = temp_q.copy()
+
+                # BƯỚC 3: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
+                DIAGNOSTIC_ITEMS = 4
+                if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
+                    # Chẩn đoán: Bốc ngẫu nhiên câu có độ khó trung bình
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
                     st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
                 else:
+                    # Thích ứng: Tính Fisher Information
                     available_q['info'] = available_q.apply(
                         lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
-                    ) + np.random.uniform(0, 0.05, len(available_q))
-                    st.session_state.current_item = available_q.nlargest(20, 'info').sample(1).iloc[0]
+                    )
+                    # Sắp xếp từ cao xuống thấp theo Information
+                    sorted_q = available_q.sort_values(by='info', ascending=False)
+                    
+                    # CẮT LẤY TOP 15 CÂU TỐT NHẤT VÀ BỐC RANDOM 1 CÂU (Tránh AI bốc mãi 1 câu đỉnh nhất)
+                    top_pool = sorted_q.head(15)
+                    st.session_state.current_item = top_pool.sample(1).iloc[0]
             else:
                 st.session_state.current_item = "DONE"
 
         q = st.session_state.current_item
         
         if isinstance(q, str) and q == "DONE":
-            st.success("Hệ thống đã hết câu hỏi.")
+            st.success("Hệ thống đã hết câu hỏi phù hợp cho em trong ngân hàng.")
         elif q is not None:
             st.markdown(f"### Câu hỏi:\n{q['question_text']}")
             
@@ -176,13 +189,15 @@ with tab1:
             choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
             
             if not st.session_state.answered:
-                if st.button("🚀 Gửi đáp án", type="primary"):
+                if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
                     user_choice_letter = choice.split(".")[0]
                     correct_letter = str(q['correct_answer']).strip()
+                    
                     x = 1 if user_choice_letter == correct_letter else 0
                     
+                    # LƯU TRẠNG THÁI VÀ KỸ NĂNG VỪA LÀM
                     st.session_state.last_correct = x
-                    st.session_state.recent_skills.append(q['skill_id'])
+                    st.session_state.last_skill = q['skill_id'] 
                     
                     interaction = {
                         'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
@@ -202,15 +217,15 @@ with tab1:
 
             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
-                    st.success("🎉 Chính xác! Em làm rất tốt.")
+                    st.success("🎉 Chính xác! Thuật toán đang thiết lập thử thách mới cho em...")
                 else:
-                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
+                    st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
                     st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
                     
                     with st.expander("👀 Bấm vào đây để xem Đáp án đúng (Chỉ xem khi đã thực sự bí)"):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                 
-                if st.button("👉 Câu tiếp theo", type="primary"):
+                if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):
                     st.session_state.answered = False
                     st.session_state.current_item = None
                     st.rerun()

@@ -195,7 +195,7 @@ with tab1:
         # ==========================================
         # HIỂN THỊ CÂU HỎI TRÊN GIAO DIỆN
         # ==========================================
-        q = st.session_state.current_item
+                q = st.session_state.current_item
         
         if isinstance(q, str) and q == "DONE":
             st.success("Hệ thống đã hết câu hỏi phù hợp cho em trong ngân hàng.")

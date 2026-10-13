@@ -164,16 +164,27 @@ with tab1:
             # BƯỚC 1: LỌC BỎ 100% CÁC CÂU HỎI ĐÃ TỪNG LÀM TRONG BÀI TEST NÀY
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
-            if not available_q.empty:
-                # BƯỚC 2: LUẬT BÀI TRỪ KỸ NĂNG NGHIÊM NGẶT (STRICT SKILL BANNING)
-                if st.session_state.last_skill is not None:
-                    # Ép hệ thống lọc bỏ toàn bộ câu hỏi có cùng mã Kỹ năng với câu vừa làm
-                    temp_q = available_q[available_q['skill_id'] != st.session_state.last_skill]
+          if not available_q.empty:
+                DIAGNOSTIC_ITEMS = 4 
+                # --- GIAI ĐOẠN 1: CHẨN ĐOÁN (4 CÂU ĐẦU) ---
+                if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
+                    medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
+                    st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
+                
+                # --- GIAI ĐOẠN 2: THÍCH ỨNG (TỪ CÂU 5 TRỞ ĐI) ---
+                else:
+                    # BƯỚC 1: Bắt buộc phải tính toán và tạo cột 'info' trước
+                    available_q['info'] = available_q.apply(
+                        lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
+                    )
                     
-                    # Nếu lọc xong mà vẫn còn câu hỏi, thì áp dụng kho câu hỏi mới này
-                    if not temp_q.empty:
-                        available_q = temp_q.copy()
-
+                    # BƯỚC 2: Lúc này mới được phép sort theo cột 'info'
+                    sorted_q = available_q.sort_values(by='info', ascending=False)
+                    
+                    # BƯỚC 3: Chọn ngẫu nhiên 1 trong 5 câu có Information cao nhất (chống kịch bản học vẹt)
+                    st.session_state.current_item = sorted_q.head(5).sample(1).iloc[0]
+            else:
+                st.session_state.current_item = "DONE"
                 # BƯỚC 3: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
                 DIAGNOSTIC_ITEMS = 4
                 if len(st.session_state.history) < DIAGNOSTIC_ITEMS:

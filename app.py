@@ -160,7 +160,7 @@ with tab1:
         st.markdown(f"**Tiến độ bài Test:** {len(st.session_state.asked_ids) + 1} / {MAX_QUESTIONS}")
         st.progress(len(st.session_state.asked_ids) / MAX_QUESTIONS)
         
-       if st.session_state.current_item is None:
+    if st.session_state.current_item is None:
             # BƯỚC 1: LỌC BỎ CÁC CÂU HỎI ĐÃ TỪNG LÀM
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             

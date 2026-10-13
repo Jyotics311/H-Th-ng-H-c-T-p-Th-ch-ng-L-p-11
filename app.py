@@ -9,7 +9,8 @@ from google.oauth2.service_account import Credentials
 # ==========================================
 # 1. CẤU HÌNH GOOGLE SHEETS
 # ==========================================
-SHEET_ID = "1I9VdzBH7j-ydr_v9Q2CXdYtenV9ethAstfYGHa5bL-E"
+# 🛑 THAY MÃ ID CỦA BẠN VÀO ĐÂY:
+SHEET_ID = "DAN_MA_ID_GOOGLE_SHEET_CUA_BAN_VAO_DAY"
 
 @st.cache_resource
 def get_google_sheet():
@@ -26,27 +27,21 @@ def save_log_to_sheet(data):
         data['Theta_Before'], data['Correct'], data['Timestamp']
     ]
     sheet.append_row(row)
+
 def load_logs_from_sheet():
-    """Tải toàn bộ dữ liệu từ Google Sheets (Phiên bản chống lỗi GSpreadException)"""
     try:
         client = get_gspread_client()
         spreadsheet = client.open_by_key(SHEET_ID)
         sheet = spreadsheet.get_worksheet(0)
-        
-        # Lấy toàn bộ dữ liệu dưới dạng mảng 2 chiều (cực kỳ an toàn, không sợ file trống)
         data = sheet.get_all_values()
-        
-        # Nếu file có dữ liệu (lớn hơn 1 hàng: tức là có Tiêu đề + ít nhất 1 dòng data)
         if len(data) > 1:
             headers = data[0]
             records = data[1:]
             df = pd.DataFrame(records, columns=headers)
             return df
         else:
-            return pd.DataFrame() # Trả về bảng rỗng nếu file chưa có ai làm bài
-            
+            return pd.DataFrame()
     except Exception as e:
-        # Nếu Google API bị lỗi bất ngờ, hệ thống không sập mà chỉ báo chưa có dữ liệu
         return pd.DataFrame()
 
 # ==========================================
@@ -87,7 +82,11 @@ if 'theta' not in st.session_state: st.session_state.theta = 0.0
 
 @st.cache_data
 def load_question_bank():
-    return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
+    try:
+        return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
+    except:
+        st.error("LỖI: Không tìm thấy file ngân hàng câu hỏi.")
+        st.stop()
 
 df = load_question_bank()
 
@@ -160,52 +159,37 @@ with tab1:
         st.progress(len(st.session_state.asked_ids) / MAX_QUESTIONS)
         
         if st.session_state.current_item is None:
-            # BƯỚC 1: LỌC BỎ 100% CÁC CÂU HỎI ĐÃ TỪNG LÀM TRONG BÀI TEST NÀY
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
-            if not available_q.empty:
-                # BƯỚC 2: LUẬT BÀI TRỪ KỸ NĂNG NGHIÊM NGẶT (STRICT SKILL BANNING)
-                if st.session_state.last_skill is not None:
-                    # Ép hệ thống lọc bỏ toàn bộ câu hỏi có cùng mã Kỹ năng với câu vừa làm
-                    temp_q = available_q[available_q['skill_id'] != st.session_state.last_skill]
-                    
-                    # Nếu lọc xong mà vẫn còn câu hỏi, thì áp dụng kho câu hỏi mới này
-                    if not temp_q.empty:
-                        available_q = temp_q.copy()
+            # Thuật toán chống lặp kỹ năng
+            if len(st.session_state.recent_skills) > 0:
+                mask = ~available_q['skill_id'].isin(st.session_state.recent_skills[-2:])
+                if mask.sum() > 5:
+                    available_q = available_q[mask].copy()
 
-                # BƯỚC 3: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
-                DIAGNOSTIC_ITEMS = 4
+            if not available_q.empty:
+                DIAGNOSTIC_ITEMS = 4 
                 if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
-                    # Chẩn đoán: Bốc ngẫu nhiên câu có độ khó trung bình
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
                     st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
                 else:
-                    # Thích ứng: Tính Fisher Information
-                    available_q['info'] = available_q.apply(
-                        lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
-                    )
-                    # Sắp xếp từ cao xuống thấp theo Information
-                    sorted_q = available_q.sort_values(by='info', ascending=False)
-                    
-                    # CẮT LẤY TOP 15 CÂU TỐT NHẤT VÀ BỐC RANDOM 1 CÂU (Tránh AI bốc mãi 1 câu đỉnh nhất)
-                    top_pool = sorted_q.head(15)
-                    st.session_state.current_item = top_pool.sample(1).iloc[0]
-          else:
-                    # --- THUẬT TOÁN THÍCH ỨNG: KẾT HỢP ĐỘ KHÓ (b) VÀ FISHER INFO ---
-                    
-                    # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)
+                    # --- NÂNG CẤP: CHỐNG BẪY ĐỘ PHÂN BIỆT (PROXIMITY-FIRST) ---
                     available_q['distance'] = (available_q['param_b'] - st.session_state.theta).abs()
-                    
-                    # 2. Ép hệ thống chỉ giữ lại 20 câu có độ khó GẦN NHẤT với học sinh lúc này
                     closest_q = available_q.nsmallest(20, 'distance').copy()
                     
-                    # 3. Tính Fisher Information trên 20 câu phù hợp này để tìm câu tốt nhất
                     closest_q['info'] = closest_q.apply(
                         lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
                     )
-                    
-                    # 4. Lấy Top 5 câu tốt nhất và bốc ngẫu nhiên (Chống lặp)
                     st.session_state.current_item = closest_q.nlargest(5, 'info').sample(1).iloc[0]
+            else:
+                st.session_state.current_item = "DONE"
+
+        q = st.session_state.current_item
+        
+        if isinstance(q, str) and q == "DONE":
+            st.success("Hệ thống đã hết câu hỏi phù hợp cho em.")
+        elif q is not None:
+            st.markdown(f"### Câu hỏi:\n{q['question_text']}")
             
             options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
             display_options = [f"A. {options_dict['A']}", f"B. {options_dict['B']}", f"C. {options_dict['C']}", f"D. {options_dict['D']}"]
@@ -213,15 +197,13 @@ with tab1:
             choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
             
             if not st.session_state.answered:
-                if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
+                if st.button("🚀 Gửi đáp án", type="primary"):
                     user_choice_letter = choice.split(".")[0]
                     correct_letter = str(q['correct_answer']).strip()
-                    
                     x = 1 if user_choice_letter == correct_letter else 0
                     
-                    # LƯU TRẠNG THÁI VÀ KỸ NĂNG VỪA LÀM
                     st.session_state.last_correct = x
-                    st.session_state.last_skill = q['skill_id'] 
+                    st.session_state.recent_skills.append(q['skill_id'])
                     
                     interaction = {
                         'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
@@ -241,9 +223,9 @@ with tab1:
 
             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
-                    st.success("🎉 Chính xác!")
+                    st.success("🎉 Chính xác! Em làm rất tốt.")
                 else:
-                    st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
+                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
                     st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
                     
                     with st.expander("👀 Bấm vào đây để xem Đáp án đúng (Chỉ xem khi đã thực sự bí)"):

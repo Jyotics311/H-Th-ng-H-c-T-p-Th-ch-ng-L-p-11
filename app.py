@@ -182,10 +182,10 @@ with tab1:
                     
                     # BƯỚC 3: Chọn ngẫu nhiên 1 trong 5 câu có Information cao nhất (chống kịch bản học vẹt)
                     st.session_state.current_item = sorted_q.head(5).sample(1).iloc[0]
-            else:
+                else:
                 st.session_state.current_item = "DONE"
                 # BƯỚC 4: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
-          else:
+                else:
                     # --- THUẬT TOÁN THÍCH ỨNG: KẾT HỢP ĐỘ KHÓ (b) VÀ FISHER INFO ---
                     
                     # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)

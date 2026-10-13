@@ -217,7 +217,7 @@ with tab1:
 
             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
-                    st.success("🎉 Chính xác! Thuật toán đang thiết lập thử thách mới cho em...")
+                    st.success("🎉 Chính xác!")
                 else:
                     st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
                     st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")

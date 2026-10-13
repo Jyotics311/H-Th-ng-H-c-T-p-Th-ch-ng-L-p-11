@@ -12,29 +12,32 @@ from google.oauth2.service_account import Credentials
 SHEET_ID = "1I9VdzBH7j-ydr_v9Q2CXdYtenV9ethAstfYGHa5bL-E"
 
 @st.cache_resource
-def get_google_sheet():
+def get_gspread_client():
+    """Khởi tạo kết nối an toàn với Google Sheets"""
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
-    client = gspread.authorize(creds)
-    return client.open_by_key(SHEET_ID).get_worksheet(0)
+    return gspread.authorize(creds)
 
 def save_log_to_sheet(data):
-    sheet = get_google_sheet()
-    row = [
-        data['Student'], data['Class'], data['School'], data['Email'],
-        data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
-        data['Theta_Before'], data['Correct'], data['Timestamp']
-    ]
-    sheet.append_row(row)
+    try:
+        client = get_gspread_client()
+        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
+        row = [
+            data['Student'], data['Class'], data['School'], data['Email'],
+            data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
+            data['Theta_Before'], data['Correct'], data['Timestamp']
+        ]
+        sheet.append_row(row)
+    except Exception as e:
+        st.toast(f"Cảnh báo: Không thể lưu kết nối - {e}")
 
 def load_logs_from_sheet():
     """Tải toàn bộ dữ liệu từ Google Sheets (Phiên bản chống lỗi GSpreadException)"""
     try:
         client = get_gspread_client()
-        spreadsheet = client.open_by_key(SHEET_ID)
-        sheet = spreadsheet.get_worksheet(0)
+        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
         
-        # Lấy toàn bộ dữ liệu dưới dạng mảng 2 chiều (cực kỳ an toàn, không sợ file trống)
+        # Lấy toàn bộ dữ liệu dưới dạng mảng 2 chiều
         data = sheet.get_all_values()
         
         # Nếu file có dữ liệu (lớn hơn 1 hàng: tức là có Tiêu đề + ít nhất 1 dòng data)
@@ -44,10 +47,9 @@ def load_logs_from_sheet():
             df = pd.DataFrame(records, columns=headers)
             return df
         else:
-            return pd.DataFrame() # Trả về bảng rỗng nếu file chưa có ai làm bài
+            return pd.DataFrame() 
             
     except Exception as e:
-        # Nếu Google API bị lỗi bất ngờ, hệ thống không sập mà chỉ báo chưa có dữ liệu
         return pd.DataFrame()
 
 # ==========================================
@@ -140,6 +142,7 @@ tab3 = tabs[2] if len(tabs) == 3 else None
 with tab1:
     MAX_QUESTIONS = 15
     
+    # 1. NẾU ĐÃ HOÀN THÀNH BÀI TEST
     if len(st.session_state.asked_ids) >= MAX_QUESTIONS:
         st.success(f"🏆 CHÚC MỪNG! Em đã hoàn thành bài Test ({MAX_QUESTIONS} câu).")
         correct_count = sum([res['x'] for res in st.session_state.history])
@@ -156,12 +159,13 @@ with tab1:
             st.session_state.theta = 0.0
             st.rerun()
             
+    # 2. NẾU ĐANG TRONG QUÁ TRÌNH LÀM BÀI
     else:
         st.markdown(f"**Tiến độ bài Test:** {len(st.session_state.asked_ids) + 1} / {MAX_QUESTIONS}")
         st.progress(len(st.session_state.asked_ids) / MAX_QUESTIONS)
         
-    if st.session_state.current_item is None:
-            # BƯỚC 1: LỌC BỎ CÁC CÂU HỎI ĐÃ TỪNG LÀM
+        # Tìm câu hỏi mới nếu chưa có
+        if st.session_state.current_item is None:
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
             if not available_q.empty:
@@ -172,32 +176,25 @@ with tab1:
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
                     st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
                 
-                # --- GIAI ĐOẠN 2: THÍCH ỨNG (TỪ CÂU 5 TRỞ ĐI) ---
+                # --- GIAI ĐOẠN 2: THÍCH ỨNG ---
                 else:
-                    # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)
                     available_q['distance'] = (available_q['param_b'] - st.session_state.theta).abs()
-                    
-                    # 2. Ép hệ thống chỉ giữ lại 20 câu có độ khó GẦN NHẤT với học sinh lúc này
                     closest_q = available_q.nsmallest(20, 'distance').copy()
-                    
-                    # 3. Tính Fisher Information trên 20 câu phù hợp này để tìm câu tốt nhất
                     closest_q['info'] = closest_q.apply(
                         lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
                     )
-                    
-                    # 4. Lấy Top 5 câu cung cấp nhiều thông tin nhất và bốc ngẫu nhiên (Chống lặp kịch bản)
                     st.session_state.current_item = closest_q.nlargest(5, 'info').sample(1).iloc[0]
             
-            # NẾU HẾT CÂU HỎI TRONG NGÂN HÀNG
+            # Nếu hết sạch câu hỏi trong ngân hàng
             else:
                 st.session_state.current_item = "DONE"
 
         # ==========================================
-        # HIỂN THỊ CÂU HỎI TRÊN GIAO DIỆN
+        # HIỂN THỊ CÂU HỎI & XỬ LÝ TRẢ LỜI
         # ==========================================
-                q = st.session_state.current_item
+        q = st.session_state.current_item
         
-    if isinstance(q, str) and q == "DONE":
+        if isinstance(q, str) and q == "DONE":
             st.success("Hệ thống đã hết câu hỏi phù hợp cho em trong ngân hàng.")
         elif q is not None:
             st.markdown(f"### Câu hỏi:\n{q['question_text']}")
@@ -207,6 +204,7 @@ with tab1:
             
             choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
             
+            # Form nộp bài
             if not st.session_state.answered:
                 if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
                     user_choice_letter = choice.split(".")[0]
@@ -214,7 +212,6 @@ with tab1:
                     
                     x = 1 if user_choice_letter == correct_letter else 0
                     
-                    # LƯU TRẠNG THÁI VÀ KỸ NĂNG VỪA LÀM
                     st.session_state.last_correct = x
                     st.session_state.last_skill = q['skill_id'] 
                     
@@ -234,6 +231,7 @@ with tab1:
                     st.session_state.answered = True
                     st.rerun()
 
+            # Hiển thị giải thích sau khi trả lời
             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 Chính xác!")

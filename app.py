@@ -7,13 +7,12 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 # ==========================================
-# 1. CẤU HÌNH GOOGLE SHEETS TỐI ƯU (CHỐNG LỖI API)
+# 1. CẤU HÌNH GOOGLE SHEETS
 # ==========================================
-SHEET_ID = "1I9VdzBH7j-ydr_v9Q2CXdYtenV9ethAstfYGHa5bL-E"
+SHEET_ID = "DAN_MA_ID_GOOGLE_SHEET_CUA_BAN_VAO_DAY"
 
 @st.cache_resource
 def get_google_sheet():
-    """Khởi tạo kết nối Google Sheet 1 LẦN DUY NHẤT và giữ kết nối"""
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
     client = gspread.authorize(creds)
@@ -59,14 +58,11 @@ def update_theta_mle(theta_old, history):
 # 3. KHỞI TẠO ỨNG DỤNG
 # ==========================================
 st.set_page_config(page_title="AI Thích Ứng - Lớp 11", layout="wide", page_icon="🧠")
-
-# Tùy chỉnh CSS để chữ to, dễ đọc hơn
 st.markdown("""<style>.stRadio label {font-size: 18px !important; line-height: 1.6;}</style>""", unsafe_allow_html=True)
 
-# Khởi tạo biến môi trường
 for key in ['logged_in', 'answered']:
     if key not in st.session_state: st.session_state[key] = False
-for key in ['user_info', 'current_item', 'last_correct']:
+for key in ['user_info', 'current_item', 'last_correct', 'last_skill']:
     if key not in st.session_state: st.session_state[key] = None
 for key in ['history', 'asked_ids', 'recent_skills']:
     if key not in st.session_state: st.session_state[key] = []
@@ -127,7 +123,6 @@ with tab1:
     MAX_QUESTIONS = 15
     
     if len(st.session_state.asked_ids) >= MAX_QUESTIONS:
-        st.balloons()
         st.success(f"🏆 CHÚC MỪNG! Em đã hoàn thành bài Test ({MAX_QUESTIONS} câu).")
         correct_count = sum([res['x'] for res in st.session_state.history])
         st.info(f"📊 **Kết quả:** Em đã làm đúng **{correct_count}/{MAX_QUESTIONS}** câu.")
@@ -139,6 +134,8 @@ with tab1:
             st.session_state.recent_skills = []
             st.session_state.current_item = None
             st.session_state.answered = False
+            st.session_state.last_skill = None
+            st.session_state.theta = 0.0
             st.rerun()
             
     else:
@@ -148,25 +145,21 @@ with tab1:
         if st.session_state.current_item is None:
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
-            # --- THUẬT TOÁN CHỐNG LẶP KỸ NĂNG NÂNG CAO ---
+            # Thuật toán chống lặp kỹ năng (Nhớ 2 kỹ năng gần nhất)
             if len(st.session_state.recent_skills) > 0:
-                # Cấm bốc lại các kỹ năng đã làm trong 2 câu gần nhất
                 mask = ~available_q['skill_id'].isin(st.session_state.recent_skills[-2:])
                 if mask.sum() > 5:
                     available_q = available_q[mask].copy()
 
             if not available_q.empty:
                 if len(st.session_state.history) < 4:
-                    # Chẩn đoán ngẫu nhiên
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
                     st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
                 else:
-                    # Thích ứng bằng Fisher + Nhiễu ngẫu nhiên nhỏ (0 đến 0.05) để phá vỡ thế cân bằng của các câu đẳng cấu
                     available_q['info'] = available_q.apply(
                         lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
                     ) + np.random.uniform(0, 0.05, len(available_q))
-                    
-                    st.session_state.current_item = available_q.nlargest(10, 'info').sample(1).iloc[0]
+                    st.session_state.current_item = available_q.nlargest(20, 'info').sample(1).iloc[0]
             else:
                 st.session_state.current_item = "DONE"
 
@@ -211,12 +204,11 @@ with tab1:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 Chính xác! Em làm rất tốt.")
                 else:
-                    st.error("❌ Đáp án chưa chính xác.")
-                    st.warning(f"💡 **GỢI Ý:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
-                    with st.expander("👀 Bấm vào đây để xem Đáp án đúng"):
+                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
+                    st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
+                    
+                    with st.expander("👀 Bấm vào đây để xem Đáp án đúng (Chỉ xem khi đã thực sự bí)"):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
-                        else:
-                            st.markdown(solution)
                 
                 if st.button("👉 Câu tiếp theo", type="primary"):
                     st.session_state.answered = False
@@ -231,7 +223,6 @@ with tab2:
     if not all_logs.empty:
         my_logs = all_logs[all_logs['Student'] == st.session_state.user_info['name']].copy()
         if not my_logs.empty:
-            # FIX LỖI ÉP KIỂU DỮ LIỆU CỦA GOOGLE SHEETS
             my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'], errors='coerce').fillna(0.0)
             my_logs['Correct'] = pd.to_numeric(my_logs['Correct'], errors='coerce').fillna(0)
             
@@ -261,7 +252,9 @@ with tab2:
             comp_data['Độ Thành Thạo (%)'] = round((comp_data['Số_Câu_Đúng'] / comp_data['Tổng_Câu']) * 100, 1)
             st.dataframe(comp_data, use_container_width=True)
         else:
-            st.info("Chưa có dữ liệu vẽ biểu đồ.")
+            st.info("Em hãy hoàn thành một số câu hỏi để hệ thống có thể vẽ biểu đồ năng lực nhé!")
+    else:
+        st.info("Hệ thống chưa ghi nhận dữ liệu.")
 
 # ----------------- TAB 3: QUẢN LÝ KẾT QUẢ -----------------
 if tab3 is not None:

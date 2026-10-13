@@ -196,7 +196,7 @@ with tab1:
                     
                     # 4. Lấy Top 5 câu tốt nhất và bốc ngẫu nhiên (Chống lặp)
                     st.session_state.current_item = closest_q.nlargest(5, 'info').sample(1).iloc[0]
-                    )
+                    
                     # Sắp xếp từ cao xuống thấp theo Information
                     sorted_q = available_q.sort_values(by='info', ascending=False)
                     

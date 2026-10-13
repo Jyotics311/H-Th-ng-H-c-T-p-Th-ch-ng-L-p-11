@@ -26,11 +26,28 @@ def save_log_to_sheet(data):
         data['Theta_Before'], data['Correct'], data['Timestamp']
     ]
     sheet.append_row(row)
-
 def load_logs_from_sheet():
-    sheet = get_google_sheet()
-    records = sheet.get_all_records()
-    return pd.DataFrame(records) if records else pd.DataFrame()
+    """Tải toàn bộ dữ liệu từ Google Sheets (Phiên bản chống lỗi GSpreadException)"""
+    try:
+        client = get_gspread_client()
+        spreadsheet = client.open_by_key(SHEET_ID)
+        sheet = spreadsheet.get_worksheet(0)
+        
+        # Lấy toàn bộ dữ liệu dưới dạng mảng 2 chiều (cực kỳ an toàn, không sợ file trống)
+        data = sheet.get_all_values()
+        
+        # Nếu file có dữ liệu (lớn hơn 1 hàng: tức là có Tiêu đề + ít nhất 1 dòng data)
+        if len(data) > 1:
+            headers = data[0]
+            records = data[1:]
+            df = pd.DataFrame(records, columns=headers)
+            return df
+        else:
+            return pd.DataFrame() # Trả về bảng rỗng nếu file chưa có ai làm bài
+            
+    except Exception as e:
+        # Nếu Google API bị lỗi bất ngờ, hệ thống không sập mà chỉ báo chưa có dữ liệu
+        return pd.DataFrame()
 
 # ==========================================
 # 2. THUẬT TOÁN AI (IRT & FISHER)

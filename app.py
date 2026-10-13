@@ -82,7 +82,7 @@ if 'asked_ids' not in st.session_state: st.session_state.asked_ids = []
 if 'current_item' not in st.session_state: st.session_state.current_item = None
 if 'answered' not in st.session_state: st.session_state.answered = False
 if 'last_correct' not in st.session_state: st.session_state.last_correct = None
-
+if 'last_skill' not in st.session_state: st.session_state.last_skill = None
 @st.cache_data
 def load_question_bank():
     try:
@@ -160,26 +160,24 @@ st.markdown(
 
 # ----------------- TAB 1: LÀM BÀI -----------------
 with tab1:
-    MAX_QUESTIONS_PER_TEST = 15 # Thiết lập 1 bài Test có 15 câu (Giải quyết yêu cầu HS 2)
+    MAX_QUESTIONS_PER_TEST = 15
     
-    # Kiểm tra xem học sinh đã hoàn thành 1 Test chưa
     if len(st.session_state.asked_ids) >= MAX_QUESTIONS_PER_TEST:
         st.balloons()
         st.success(f"🏆 CHÚC MỪNG! Em đã hoàn thành bài Test ({MAX_QUESTIONS_PER_TEST} câu).")
         
-        # Thống kê nhanh kết quả của bài Test vừa làm
         correct_count = sum([res['x'] for res in st.session_state.history])
         st.info(f"📊 **Kết quả bài Test:** Em đã làm đúng **{correct_count}/{MAX_QUESTIONS_PER_TEST}** câu.")
-        st.write(f"📈 **Mức năng lực (Theta) đạt được:** {round(st.session_state.theta, 2)}")
         
+        # Đã xóa dòng hiển thị Mức năng lực Theta theo yêu cầu
         st.write("Em hãy sang tab **Tiến trình học tập** để xem biểu đồ chi tiết, hoặc bấm nút dưới đây để làm một bài Test mới.")
         
         if st.button("🔄 Bắt đầu bài Test mới", type="primary"):
             st.session_state.asked_ids = []
             st.session_state.history = []
-            # Có thể giữ nguyên Theta làm xuất phát điểm cho Test sau, hoặc reset về 0.0 tùy bạn
             st.session_state.current_item = None
             st.session_state.answered = False
+            st.session_state.last_skill = None # Reset chống lặp
             st.rerun()
             
     else:
@@ -187,24 +185,29 @@ with tab1:
         st.progress((len(st.session_state.asked_ids)) / MAX_QUESTIONS_PER_TEST)
         
         if st.session_state.current_item is None:
+            # Lọc bỏ các câu đã hỏi
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
+            # THUẬT TOÁN CHỐNG LẶP KỸ NĂNG (Skill Exposure Control)
+            if st.session_state.last_skill is not None:
+                # Tìm các câu KHÁC với kỹ năng vừa làm
+                diff_skill_q = available_q[available_q['skill_id'] != st.session_state.last_skill]
+                # Nếu ngân hàng vẫn còn nhiều câu, ta bắt buộc đổi kỹ năng
+                if len(diff_skill_q) > 5:
+                    available_q = diff_skill_q.copy()
+
             if not available_q.empty:
                 DIAGNOSTIC_ITEMS = 4 
-                
                 if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
-                    # Giai đoạn chẩn đoán
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
                     st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
                 else:
-                    # Giai đoạn thích ứng (GIẢI QUYẾT LỖI LẶP CÂU HỎI BẰNG RANDOMESQUE)
                     available_q['info'] = available_q.apply(
                         lambda row: fisher_information(st.session_state.theta, row['param_a'], row['param_b']), axis=1
                     )
-                    # Lấy TOP 5 câu hỏi có Info cao nhất
-                    top_5_questions = available_q.nlargest(5, 'info')
-                    # Bốc ngẫu nhiên 1 câu trong Top 5
-                    st.session_state.current_item = top_5_questions.sample(1).iloc[0]
+                    # Mở rộng vùng bốc ngẫu nhiên lên TOP 20 câu tốt nhất để tăng tính đa dạng
+                    top_pool = available_q.nlargest(20, 'info')
+                    st.session_state.current_item = top_pool.sample(1).iloc[0]
             else:
                 st.session_state.current_item = "DONE"
 
@@ -227,6 +230,7 @@ with tab1:
                     
                     x = 1 if user_choice_letter == correct_letter else 0
                     st.session_state.last_correct = x
+                    st.session_state.last_skill = q['skill_id'] # Lưu lại kỹ năng vừa làm để cấm ở câu sau
                     
                     interaction = {
                         'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
@@ -248,17 +252,8 @@ with tab1:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 Chính xác! Em làm rất tốt.")
                 else:
-                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
-                    
-                    # NÂNG CẤP GIAO DIỆN GỢI Ý & ĐÁP ÁN (Yêu cầu HS 2)
-                    st.warning(f"""
-                    💡 **GIÀN GIÁO NHẬN THỨC (SCAFFOLDING):**
-                    - **Bước 1 (Gợi mở):** {q['scaffold_step1']}
-                    - **Bước 2 (Hướng dẫn):** {q['scaffold_step2']}
-                    """)
-                    
-                    with st.expander("👀 Bấm vào đây để xem đáp án đúng (Chỉ xem khi đã thực sự bí)"):
-                        st.write(f"Đáp án chính xác là: **{q['correct_answer']}**")
+                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ gợi ý bên dưới nhé!")
+                    st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
                 
                 if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):
                     st.session_state.answered = False

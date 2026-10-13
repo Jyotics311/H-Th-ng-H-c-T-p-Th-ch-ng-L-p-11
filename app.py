@@ -287,7 +287,7 @@ if not my_logs.empty:
             comp_data = my_logs.groupby('Competency').agg(Tổng_Câu=('Item_ID', 'count'), Số_Câu_Đúng=('Correct', 'sum'))
             comp_data['Độ Thành Thạo (%)'] = round((comp_data['Số_Câu_Đúng'] / comp_data['Tổng_Câu']) * 100, 1)
             st.dataframe(comp_data, use_container_width=True)
-        else:
+    else:
             st.info("Em hãy hoàn thành một số câu hỏi để hệ thống có thể vẽ biểu đồ năng lực nhé!")
     else:
         st.info("Hệ thống chưa ghi nhận dữ liệu.")

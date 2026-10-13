@@ -258,11 +258,10 @@ with tab2:
     st.markdown("### 📊 Biểu đồ Năng lực & Chẩn đoán Lỗ hổng")
     all_logs = load_logs_from_sheet()
     
-    if not all_logs.empty:
-        my_logs = all_logs[all_logs['Student'] == st.session_state.user_info['name']].copy()
-        if not my_logs.empty:
-            my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'], errors='coerce').fillna(0.0)
-            my_logs['Correct'] = pd.to_numeric(my_logs['Correct'], errors='coerce').fillna(0)
+   if not my_logs.empty:
+            # SỬA TẠI ĐÂY: Thay dấu phẩy thành dấu chấm để Python hiểu được số thập phân
+            my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
+            my_logs['Correct'] = pd.to_numeric(my_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
             
             col1, col2 = st.columns(2)
             with col1:
@@ -302,8 +301,9 @@ if tab3 is not None:
         all_logs = load_logs_from_sheet()
         
         if not all_logs.empty:
-            all_logs['Theta_Before'] = pd.to_numeric(all_logs['Theta_Before'], errors='coerce').fillna(0.0)
-            all_logs['Correct'] = pd.to_numeric(all_logs['Correct'], errors='coerce').fillna(0)
+            # SỬA TẠI ĐÂY: Thay dấu phẩy thành dấu chấm
+            all_logs['Theta_Before'] = pd.to_numeric(all_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
+            all_logs['Correct'] = pd.to_numeric(all_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
             
             school_logs = all_logs[all_logs['School'] == teacher_school].copy()
             if not school_logs.empty:

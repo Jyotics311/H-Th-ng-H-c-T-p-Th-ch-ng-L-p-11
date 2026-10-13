@@ -149,77 +149,121 @@ else:
     tabs = st.tabs(["📖 Làm bài", "📈 Tiến trình học tập", "👨‍🏫 Kết quả học tập"])
     tab1, tab2, tab3 = tabs[0], tabs[1], tabs[2]
 
+# Tăng size chữ cho lựa chọn đáp án bằng CSS
+st.markdown(
+    """
+    <style>
+    .stRadio label {font-size: 18px !important; line-height: 1.6;}
+    </style>
+    """, unsafe_allow_html=True
+)
+
 # ----------------- TAB 1: LÀM BÀI -----------------
 with tab1:
-    if st.session_state.current_item is None:
-        available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
-        
-        if not available_q.empty:
-            DIAGNOSTIC_ITEMS = 4 # Số câu khởi động ngẫu nhiên
-            
-            if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
-                # Giai đoạn chẩn đoán: Random câu trung bình
-                medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
-                st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
-            else:
-                # Giai đoạn thích ứng: Fisher Information
-                available_q['info'] = available_q.apply(
-                    lambda row: fisher_information(st.session_state.theta, row['param_a'], row['param_b']), axis=1
-                )
-                st.session_state.current_item = available_q.sort_values(by='info', ascending=False).iloc[0]
-        else:
-            st.session_state.current_item = "DONE"
-
-    q = st.session_state.current_item
+    MAX_QUESTIONS_PER_TEST = 15 # Thiết lập 1 bài Test có 15 câu (Giải quyết yêu cầu HS 2)
     
-    if isinstance(q, str) and q == "DONE":
+    # Kiểm tra xem học sinh đã hoàn thành 1 Test chưa
+    if len(st.session_state.asked_ids) >= MAX_QUESTIONS_PER_TEST:
         st.balloons()
-        st.success("Tuyệt vời! Bạn đã hoàn thành toàn bộ lộ trình của hệ thống.")
-    elif q is not None:
-        st.markdown(f"### Câu hỏi:\n{q['question_text']}")
+        st.success(f"🏆 CHÚC MỪNG! Em đã hoàn thành bài Test ({MAX_QUESTIONS_PER_TEST} câu).")
         
-        options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
-        display_options = [f"A. {options_dict['A']}", f"B. {options_dict['B']}", f"C. {options_dict['C']}", f"D. {options_dict['D']}"]
+        # Thống kê nhanh kết quả của bài Test vừa làm
+        correct_count = sum([res['x'] for res in st.session_state.history])
+        st.info(f"📊 **Kết quả bài Test:** Em đã làm đúng **{correct_count}/{MAX_QUESTIONS_PER_TEST}** câu.")
+        st.write(f"📈 **Mức năng lực (Theta) đạt được:** {round(st.session_state.theta, 2)}")
         
-        choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
+        st.write("Em hãy sang tab **Tiến trình học tập** để xem biểu đồ chi tiết, hoặc bấm nút dưới đây để làm một bài Test mới.")
         
-        if not st.session_state.answered:
-            if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
-                user_choice_letter = choice.split(".")[0]
-                correct_letter = str(q['correct_answer']).strip()
-                
-                x = 1 if user_choice_letter == correct_letter else 0
-                st.session_state.last_correct = x
-                
-                # Lưu lên Google Sheets
-                interaction = {
-                    'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
-                    'School': st.session_state.user_info['school'], 'Email': st.session_state.user_info['email'],
-                    'Item_ID': q['item_id'], 'Skill': q['skill_id'],
-                    'Competency': q['competency'], 'Level': q['level'],
-                    'Theta_Before': round(st.session_state.theta, 3),
-                    'Correct': x, 'Timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
-                }
-                save_log_to_sheet(interaction)
-                
-                st.session_state.asked_ids.append(q['item_id'])
-                st.session_state.history.append({'a': q['param_a'], 'b': q['param_b'], 'x': x})
-                st.session_state.theta = update_theta_mle(st.session_state.theta, st.session_state.history)
-                st.session_state.answered = True
-                st.rerun()
-
-        if st.session_state.answered:
-            if st.session_state.last_correct == 1:
-                st.success("🎉 Chính xác! Em làm rất tốt.")
-            else:
-                st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ gợi ý bên dưới để hiểu rõ bản chất bài toán nhé!")
-                st.warning(f"💡 **GỢI Ý:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
+        if st.button("🔄 Bắt đầu bài Test mới", type="primary"):
+            st.session_state.asked_ids = []
+            st.session_state.history = []
+            # Có thể giữ nguyên Theta làm xuất phát điểm cho Test sau, hoặc reset về 0.0 tùy bạn
+            st.session_state.current_item = None
+            st.session_state.answered = False
+            st.rerun()
             
-            if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):
-                st.session_state.answered = False
-                st.session_state.current_item = None
-                st.rerun()
+    else:
+        st.markdown(f"**Tiến độ bài Test:** {len(st.session_state.asked_ids) + 1} / {MAX_QUESTIONS_PER_TEST}")
+        st.progress((len(st.session_state.asked_ids)) / MAX_QUESTIONS_PER_TEST)
+        
+        if st.session_state.current_item is None:
+            available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
+            
+            if not available_q.empty:
+                DIAGNOSTIC_ITEMS = 4 
+                
+                if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
+                    # Giai đoạn chẩn đoán
+                    medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
+                    st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
+                else:
+                    # Giai đoạn thích ứng (GIẢI QUYẾT LỖI LẶP CÂU HỎI BẰNG RANDOMESQUE)
+                    available_q['info'] = available_q.apply(
+                        lambda row: fisher_information(st.session_state.theta, row['param_a'], row['param_b']), axis=1
+                    )
+                    # Lấy TOP 5 câu hỏi có Info cao nhất
+                    top_5_questions = available_q.nlargest(5, 'info')
+                    # Bốc ngẫu nhiên 1 câu trong Top 5
+                    st.session_state.current_item = top_5_questions.sample(1).iloc[0]
+            else:
+                st.session_state.current_item = "DONE"
 
+        q = st.session_state.current_item
+        
+        if isinstance(q, str) and q == "DONE":
+            st.success("Hệ thống đã hết câu hỏi phù hợp cho em.")
+        elif q is not None:
+            st.markdown(f"### Câu hỏi:\n{q['question_text']}")
+            
+            options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
+            display_options = [f"A. {options_dict['A']}", f"B. {options_dict['B']}", f"C. {options_dict['C']}", f"D. {options_dict['D']}"]
+            
+            choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
+            
+            if not st.session_state.answered:
+                if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
+                    user_choice_letter = choice.split(".")[0]
+                    correct_letter = str(q['correct_answer']).strip()
+                    
+                    x = 1 if user_choice_letter == correct_letter else 0
+                    st.session_state.last_correct = x
+                    
+                    interaction = {
+                        'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
+                        'School': st.session_state.user_info['school'], 'Email': st.session_state.user_info['email'],
+                        'Item_ID': q['item_id'], 'Skill': q['skill_id'],
+                        'Competency': q['competency'], 'Level': q['level'],
+                        'Theta_Before': round(st.session_state.theta, 3),
+                        'Correct': x, 'Timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    save_log_to_sheet(interaction)
+                    
+                    st.session_state.asked_ids.append(q['item_id'])
+                    st.session_state.history.append({'a': q['param_a'], 'b': q['param_b'], 'x': x})
+                    st.session_state.theta = update_theta_mle(st.session_state.theta, st.session_state.history)
+                    st.session_state.answered = True
+                    st.rerun()
+
+            if st.session_state.answered:
+                if st.session_state.last_correct == 1:
+                    st.success("🎉 Chính xác! Em làm rất tốt.")
+                else:
+                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
+                    
+                    # NÂNG CẤP GIAO DIỆN GỢI Ý & ĐÁP ÁN (Yêu cầu HS 2)
+                    st.warning(f"""
+                    💡 **GIÀN GIÁO NHẬN THỨC (SCAFFOLDING):**
+                    - **Bước 1 (Gợi mở):** {q['scaffold_step1']}
+                    - **Bước 2 (Hướng dẫn):** {q['scaffold_step2']}
+                    """)
+                    
+                    with st.expander("👀 Bấm vào đây để xem đáp án đúng (Chỉ xem khi đã thực sự bí)"):
+                        st.write(f"Đáp án chính xác là: **{q['correct_answer']}**")
+                
+                if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):
+                    st.session_state.answered = False
+                    st.session_state.current_item = None
+                    st.rerun()
 # ----------------- TAB 2: TIẾN TRÌNH HỌC TẬP -----------------
 with tab2:
     st.markdown("### 📊 Biểu đồ Năng lực & Chẩn đoán Lỗ hổng")

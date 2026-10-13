@@ -213,12 +213,8 @@ with tab1:
                 else:
                     st.error("❌ Đáp án chưa chính xác.")
                     st.warning(f"💡 **GỢI Ý:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
-                    
-                    with st.expander("👀 Bấm vào đây để xem Lời giải chi tiết (Chỉ xem khi đã thực sự bí)"):
-                        st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**\n\n**📝 Lời giải:**")
-                        solution = str(q.get('detailed_solution', ''))
-                        if solution.strip() == '' or solution == 'nan':
-                            st.info("Hệ thống đang cập nhật lời giải.")
+                    with st.expander("👀 Bấm vào đây để xem Đáp án đúng"):
+                        st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                         else:
                             st.markdown(solution)
                 

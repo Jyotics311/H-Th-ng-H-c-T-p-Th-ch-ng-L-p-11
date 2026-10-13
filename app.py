@@ -12,71 +12,46 @@ from google.oauth2.service_account import Credentials
 SHEET_ID = "1I9VdzBH7j-ydr_v9Q2CXdYtenV9ethAstfYGHa5bL-E"
 
 @st.cache_resource
-def get_gspread_client():
-    """Khởi tạo và cache client kết nối Google Sheets"""
+def get_google_sheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
-    return gspread.authorize(creds)
+    client = gspread.authorize(creds)
+    return client.open_by_key(SHEET_ID).get_worksheet(0)
 
 def save_log_to_sheet(data):
-    try:
-        client = get_gspread_client()
-        # Mặc định lưu vào Sheet đầu tiên (index 0) - Sheet "Logs"
-        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
-        row = [
-            data['Student'], data['Class'], data['School'], data['Email'],
-            data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
-            data['Theta_Before'], data['Correct'], data['Timestamp']
-        ]
-        sheet.append_row(row)
-    except Exception as e:
-        st.toast(f"Lỗi lưu log: {e}", icon="⚠️")
+    sheet = get_google_sheet()
+    row = [
+        data['Student'], data['Class'], data['School'], data['Email'],
+        data['Item_ID'], data['Skill'], data['Competency'], data['Level'],
+        data['Theta_Before'], data['Correct'], data['Timestamp']
+    ]
+    sheet.append_row(row)
 
 def load_logs_from_sheet():
+    """Tải toàn bộ dữ liệu từ Google Sheets (Phiên bản chống lỗi GSpreadException)"""
     try:
         client = get_gspread_client()
-        # Lấy dữ liệu từ Sheet đầu tiên (index 0)
-        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
+        spreadsheet = client.open_by_key(SHEET_ID)
+        sheet = spreadsheet.get_worksheet(0)
+        
+        # Lấy toàn bộ dữ liệu dưới dạng mảng 2 chiều (cực kỳ an toàn, không sợ file trống)
         data = sheet.get_all_values()
+        
+        # Nếu file có dữ liệu (lớn hơn 1 hàng: tức là có Tiêu đề + ít nhất 1 dòng data)
         if len(data) > 1:
             headers = data[0]
             records = data[1:]
             df = pd.DataFrame(records, columns=headers)
             return df
         else:
-            return pd.DataFrame()
+            return pd.DataFrame() # Trả về bảng rỗng nếu file chưa có ai làm bài
+            
     except Exception as e:
-        st.error(f"Lỗi tải dữ liệu logs: {e}")
+        # Nếu Google API bị lỗi bất ngờ, hệ thống không sập mà chỉ báo chưa có dữ liệu
         return pd.DataFrame()
 
 # ==========================================
-# 2. TẢI NGÂN HÀNG CÂU HỎI
-# ==========================================
-@st.cache_data(ttl=3600) # Cache 1 tiếng để web chạy nhanh
-def load_question_bank():
-    # --- NẾU BẠN DÙNG FILE CSV LÊN GITHUB, GIỮ NGUYÊN BLOCK NÀY ---
-    try:
-        # Nếu để trong thư mục gốc
-        return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
-    except FileNotFoundError:
-        st.error("LỖI: Không tìm thấy file 'nganhang_lop11_chuan_hoa_1000.csv' trên hệ thống. Hãy kiểm tra lại thư mục hoặc GitHub!")
-        st.stop()
-        
-    # --- NẾU BẠN CHUYỂN NGÂN HÀNG LÊN GOOGLE SHEETS (TỐT NHẤT), BỎ DẤU # Ở BLOCK DƯỚI VÀ XÓA BLOCK TRÊN ---
-    # try:
-    #     client = get_gspread_client()
-    #     sheet = client.open_by_key(SHEET_ID).worksheet("NganHangCauHoi") # Tên sheet chứa câu hỏi
-    #     data = sheet.get_all_records()
-    #     return pd.DataFrame(data)
-    # except Exception as e:
-    #     st.error(f"LỖI TẢI NGÂN HÀNG TỪ GOOGLE SHEETS: {e}")
-    #     st.stop()
-
-# Đọc dữ liệu vào DataFrame
-df = load_question_bank()
-
-# ==========================================
-# 3. THUẬT TOÁN AI (IRT & FISHER)
+# 2. THUẬT TOÁN AI (IRT & FISHER)
 # ==========================================
 def p_irt(theta, a, b):
     return 1 / (1 + np.exp(np.clip(-a * (theta - b), -10, 10)))
@@ -98,7 +73,7 @@ def update_theta_mle(theta_old, history):
     return np.clip(theta_old + (num / den), -3.0, 3.0) if den > 0 else theta_old
 
 # ==========================================
-# 4. KHỞI TẠO ỨNG DỤNG
+# 3. KHỞI TẠO ỨNG DỤNG
 # ==========================================
 st.set_page_config(page_title="AI Thích Ứng - Lớp 11", layout="wide", page_icon="🧠")
 st.markdown("""<style>.stRadio label {font-size: 18px !important; line-height: 1.6;}</style>""", unsafe_allow_html=True)
@@ -111,8 +86,14 @@ for key in ['history', 'asked_ids', 'recent_skills']:
     if key not in st.session_state: st.session_state[key] = []
 if 'theta' not in st.session_state: st.session_state.theta = 0.0
 
+@st.cache_data
+def load_question_bank():
+    return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
+
+df = load_question_bank()
+
 # ==========================================
-# 5. GIAO DIỆN ĐĂNG NHẬP
+# 4. GIAO DIỆN ĐĂNG NHẬP
 # ==========================================
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -137,7 +118,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==========================================
-# 6. GIAO DIỆN CHÍNH
+# 5. GIAO DIỆN CHÍNH
 # ==========================================
 st.markdown("<h1 style='text-align: center; color: #2e6c80;'>Hệ thống Học tập Thích ứng Lớp 11</h1>", unsafe_allow_html=True)
 
@@ -180,35 +161,55 @@ with tab1:
         st.progress(len(st.session_state.asked_ids) / MAX_QUESTIONS)
         
         if st.session_state.current_item is None:
+            # BƯỚC 1: LỌC BỎ 100% CÁC CÂU HỎI ĐÃ TỪNG LÀM TRONG BÀI TEST NÀY
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
             
-            # Thuật toán chống lặp kỹ năng
-            if len(st.session_state.recent_skills) > 0:
-                mask = ~available_q['skill_id'].isin(st.session_state.recent_skills[-2:])
-                if mask.sum() > 5:
-                    available_q = available_q[mask].copy()
-
             if not available_q.empty:
-                DIAGNOSTIC_ITEMS = 4 
+                # BƯỚC 2: LUẬT BÀI TRỪ KỸ NĂNG NGHIÊM NGẶT (STRICT SKILL BANNING)
+                if st.session_state.last_skill is not None:
+                    # Ép hệ thống lọc bỏ toàn bộ câu hỏi có cùng mã Kỹ năng với câu vừa làm
+                    temp_q = available_q[available_q['skill_id'] != st.session_state.last_skill]
+                    
+                    # Nếu lọc xong mà vẫn còn câu hỏi, thì áp dụng kho câu hỏi mới này
+                    if not temp_q.empty:
+                        available_q = temp_q.copy()
+
+                # BƯỚC 3: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
+                DIAGNOSTIC_ITEMS = 4
                 if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
+                    # Chẩn đoán: Bốc ngẫu nhiên câu có độ khó trung bình
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
                     st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
                 else:
-                    # --- NÂNG CẤP: CHỐNG BẪY ĐỘ PHÂN BIỆT (PROXIMITY-FIRST) ---
+                    # --- THUẬT TOÁN THÍCH ỨNG: KẾT HỢP ĐỘ KHÓ (b) VÀ FISHER INFO ---
+                    
+                    # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)
                     available_q['distance'] = (available_q['param_b'] - st.session_state.theta).abs()
+                    
+                    # 2. Ép hệ thống chỉ giữ lại 20 câu có độ khó GẦN NHẤT với học sinh lúc này
                     closest_q = available_q.nsmallest(20, 'distance').copy()
                     
+                    # 3. Tính Fisher Information trên 20 câu phù hợp này để tìm câu tốt nhất
                     closest_q['info'] = closest_q.apply(
                         lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
                     )
+                    
+                    # 4. Lấy Top 5 câu tốt nhất và bốc ngẫu nhiên (Chống lặp)
                     st.session_state.current_item = closest_q.nlargest(5, 'info').sample(1).iloc[0]
+                    )
+                    # Sắp xếp từ cao xuống thấp theo Information
+                    sorted_q = available_q.sort_values(by='info', ascending=False)
+                    
+                    # CẮT LẤY TOP 15 CÂU TỐT NHẤT VÀ BỐC RANDOM 1 CÂU (Tránh AI bốc mãi 1 câu đỉnh nhất)
+                    top_pool = sorted_q.head(15)
+                    st.session_state.current_item = top_pool.sample(1).iloc[0]
             else:
                 st.session_state.current_item = "DONE"
 
         q = st.session_state.current_item
         
         if isinstance(q, str) and q == "DONE":
-            st.success("Hệ thống đã hết câu hỏi phù hợp cho em.")
+            st.success("Hệ thống đã hết câu hỏi phù hợp cho em trong ngân hàng.")
         elif q is not None:
             st.markdown(f"### Câu hỏi:\n{q['question_text']}")
             
@@ -218,13 +219,15 @@ with tab1:
             choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
             
             if not st.session_state.answered:
-                if st.button("🚀 Gửi đáp án", type="primary"):
+                if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
                     user_choice_letter = choice.split(".")[0]
                     correct_letter = str(q['correct_answer']).strip()
+                    
                     x = 1 if user_choice_letter == correct_letter else 0
                     
+                    # LƯU TRẠNG THÁI VÀ KỸ NĂNG VỪA LÀM
                     st.session_state.last_correct = x
-                    st.session_state.recent_skills.append(q['skill_id'])
+                    st.session_state.last_skill = q['skill_id'] 
                     
                     interaction = {
                         'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
@@ -244,9 +247,9 @@ with tab1:
 
             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
-                    st.success("🎉 Chính xác! Em làm rất tốt.")
+                    st.success("🎉 Chính xác! Thuật toán đang thiết lập thử thách mới cho em...")
                 else:
-                    st.error("❌ Đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
+                    st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
                     st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
                     
                     with st.expander("👀 Bấm vào đây để xem Đáp án đúng (Chỉ xem khi đã thực sự bí)"):

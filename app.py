@@ -197,7 +197,7 @@ with tab1:
         # ==========================================
                 q = st.session_state.current_item
         
-        if isinstance(q, str) and q == "DONE":
+    if isinstance(q, str) and q == "DONE":
             st.success("Hệ thống đã hết câu hỏi phù hợp cho em trong ngân hàng.")
         elif q is not None:
             st.markdown(f"### Câu hỏi:\n{q['question_text']}")

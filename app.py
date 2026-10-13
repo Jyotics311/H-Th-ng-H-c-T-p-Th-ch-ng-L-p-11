@@ -160,11 +160,13 @@ with tab1:
         st.markdown(f"**Tiến độ bài Test:** {len(st.session_state.asked_ids) + 1} / {MAX_QUESTIONS}")
         st.progress(len(st.session_state.asked_ids) / MAX_QUESTIONS)
         
-        if st.session_state.current_item is None:
-            # BƯỚC 1: LỌC BỎ 100% CÁC CÂU HỎI ĐÃ TỪNG LÀM TRONG BÀI TEST NÀY
+       if st.session_state.current_item is None:
+            # BƯỚC 1: LỌC BỎ CÁC CÂU HỎI ĐÃ TỪNG LÀM
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
-        if not available_q.empty:
+            
+            if not available_q.empty:
                 DIAGNOSTIC_ITEMS = 4 
+                
                 # --- GIAI ĐOẠN 1: CHẨN ĐOÁN (4 CÂU ĐẦU) ---
                 if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
                     medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
@@ -172,22 +174,6 @@ with tab1:
                 
                 # --- GIAI ĐOẠN 2: THÍCH ỨNG (TỪ CÂU 5 TRỞ ĐI) ---
                 else:
-                    # BƯỚC 1: Bắt buộc phải tính toán và tạo cột 'info' trước
-                    available_q['info'] = available_q.apply(
-                        lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
-                    )
-                    
-                    # BƯỚC 2: Lúc này mới được phép sort theo cột 'info'
-                    sorted_q = available_q.sort_values(by='info', ascending=False)
-                    
-                    # BƯỚC 3: Chọn ngẫu nhiên 1 trong 5 câu có Information cao nhất (chống kịch bản học vẹt)
-                    st.session_state.current_item = sorted_q.head(5).sample(1).iloc[0]
-                else:
-                st.session_state.current_item = "DONE"
-                # BƯỚC 4: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
-                else:
-                    # --- THUẬT TOÁN THÍCH ỨNG: KẾT HỢP ĐỘ KHÓ (b) VÀ FISHER INFO ---
-                    
                     # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)
                     available_q['distance'] = (available_q['param_b'] - st.session_state.theta).abs()
                     
@@ -199,18 +185,16 @@ with tab1:
                         lambda r: fisher_information(st.session_state.theta, r['param_a'], r['param_b']), axis=1
                     )
                     
-                    # 4. Lấy Top 5 câu tốt nhất và bốc ngẫu nhiên (Chống lặp)
+                    # 4. Lấy Top 5 câu cung cấp nhiều thông tin nhất và bốc ngẫu nhiên (Chống lặp kịch bản)
                     st.session_state.current_item = closest_q.nlargest(5, 'info').sample(1).iloc[0]
-                    
-                    # Sắp xếp từ cao xuống thấp theo Information
-                    sorted_q = available_q.sort_values(by='info', ascending=False)
-                    
-                    # CẮT LẤY TOP 15 CÂU TỐT NHẤT VÀ BỐC RANDOM 1 CÂU (Tránh AI bốc mãi 1 câu đỉnh nhất)
-                    top_pool = sorted_q.head(15)
-                    st.session_state.current_item = top_pool.sample(1).iloc[0]
+            
+            # NẾU HẾT CÂU HỎI TRONG NGÂN HÀNG
             else:
                 st.session_state.current_item = "DONE"
 
+        # ==========================================
+        # HIỂN THỊ CÂU HỎI TRÊN GIAO DIỆN
+        # ==========================================
         q = st.session_state.current_item
         
         if isinstance(q, str) and q == "DONE":
@@ -252,12 +236,12 @@ with tab1:
 
             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
-                    st.success("🎉 Chính xác! Thuật toán đang thiết lập thử thách mới cho em...")
+                    st.success("🎉 Chính xác!")
                 else:
                     st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
                     st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
                     
-                    with st.expander("👀 Bấm vào đây để xem Đáp án đúng (Chỉ xem khi đã thực sự bí)"):
+                    with st.expander("👀 Bấm vào đây để xem Đáp án đúng "):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                 
                 if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):

@@ -289,7 +289,7 @@ if not my_logs.empty:
             st.dataframe(comp_data, use_container_width=True)
 else:
             st.info("Em hãy hoàn thành một số câu hỏi để hệ thống có thể vẽ biểu đồ năng lực nhé!")
-else:
+ else:
         st.info("Hệ thống chưa ghi nhận dữ liệu.")
 
 # ----------------- TAB 3: QUẢN LÝ KẾT QUẢ -----------------

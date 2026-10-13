@@ -163,8 +163,7 @@ with tab1:
         if st.session_state.current_item is None:
             # BƯỚC 1: LỌC BỎ 100% CÁC CÂU HỎI ĐÃ TỪNG LÀM TRONG BÀI TEST NÀY
             available_q = df[~df['item_id'].isin(st.session_state.asked_ids)].copy()
-            
-          if not available_q.empty:
+        if not available_q.empty:
                 DIAGNOSTIC_ITEMS = 4 
                 # --- GIAI ĐOẠN 1: CHẨN ĐOÁN (4 CÂU ĐẦU) ---
                 if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
@@ -185,13 +184,8 @@ with tab1:
                     st.session_state.current_item = sorted_q.head(5).sample(1).iloc[0]
             else:
                 st.session_state.current_item = "DONE"
-                # BƯỚC 3: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
-                DIAGNOSTIC_ITEMS = 4
-                if len(st.session_state.history) < DIAGNOSTIC_ITEMS:
-                    # Chẩn đoán: Bốc ngẫu nhiên câu có độ khó trung bình
-                    medium_q = available_q[(available_q['param_b'] >= -1.0) & (available_q['param_b'] <= 1.0)]
-                    st.session_state.current_item = medium_q.sample(1).iloc[0] if not medium_q.empty else available_q.sample(1).iloc[0]
-                else:
+                # BƯỚC 4: PHÂN LUỒNG THUẬT TOÁN (CHẨN ĐOÁN HAY THÍCH ỨNG)
+          else:
                     # --- THUẬT TOÁN THÍCH ỨNG: KẾT HỢP ĐỘ KHÓ (b) VÀ FISHER INFO ---
                     
                     # 1. Tính khoảng cách giữa Độ khó câu hỏi (b) và Năng lực hiện tại (theta)

@@ -32,7 +32,7 @@ def save_log_to_sheet(data):
         st.toast(f"Cảnh báo: Không thể lưu kết nối - {e}")
 
 def load_logs_from_sheet():
-    """Tải toàn bộ dữ liệu từ Google Sheets (Phiên bản chống lỗi GSpreadException)"""
+    """Tải toàn bộ dữ liệu từ Google Sheets (Tự động lọc cột trùng lặp)"""
     try:
         client = get_gspread_client()
         sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
@@ -40,11 +40,17 @@ def load_logs_from_sheet():
         # Lấy toàn bộ dữ liệu dưới dạng mảng 2 chiều
         data = sheet.get_all_values()
         
-        # Nếu file có dữ liệu (lớn hơn 1 hàng: tức là có Tiêu đề + ít nhất 1 dòng data)
+        # Nếu file có dữ liệu
         if len(data) > 1:
             headers = data[0]
             records = data[1:]
             df = pd.DataFrame(records, columns=headers)
+            
+            # 🛡️ BƯỚC BẢO VỆ MỚI: Xóa bỏ các cột bị trùng tên hoặc không có tên
+            df = df.loc[:, ~df.columns.duplicated()]
+            if "" in df.columns:
+                df = df.drop(columns=[""])
+                
             return df
         else:
             return pd.DataFrame() 

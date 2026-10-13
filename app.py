@@ -257,7 +257,11 @@ with tab1:
 with tab2:
     st.markdown("### 📊 Biểu đồ Năng lực & Chẩn đoán Lỗ hổng")
     all_logs = load_logs_from_sheet()
-if not my_logs.empty:
+    
+    if not all_logs.empty:
+        my_logs = all_logs[all_logs['Student'] == st.session_state.user_info['name']].copy()
+        
+        if not my_logs.empty:
             # SỬA TẠI ĐÂY: Thay dấu phẩy thành dấu chấm để Python hiểu được số thập phân
             my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
             my_logs['Correct'] = pd.to_numeric(my_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
@@ -287,9 +291,9 @@ if not my_logs.empty:
             comp_data = my_logs.groupby('Competency').agg(Tổng_Câu=('Item_ID', 'count'), Số_Câu_Đúng=('Correct', 'sum'))
             comp_data['Độ Thành Thạo (%)'] = round((comp_data['Số_Câu_Đúng'] / comp_data['Tổng_Câu']) * 100, 1)
             st.dataframe(comp_data, use_container_width=True)
-else:
+        else:
             st.info("Em hãy hoàn thành một số câu hỏi để hệ thống có thể vẽ biểu đồ năng lực nhé!")
- else:
+    else:
         st.info("Hệ thống chưa ghi nhận dữ liệu.")
 
 # ----------------- TAB 3: QUẢN LÝ KẾT QUẢ -----------------

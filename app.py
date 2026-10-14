@@ -146,7 +146,6 @@ def load_question_bank():
 
 df = load_question_bank()
 
-df = load_question_bank()
 # ==========================================
 # 4. GIAO DIỆN ĐĂNG NHẬP
 # ==========================================

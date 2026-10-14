@@ -84,7 +84,33 @@ def update_theta_mle(theta_old, history):
 # 3. KHỞI TẠO ỨNG DỤNG
 # ==========================================
 st.set_page_config(page_title="AI Thích Ứng - Lớp 11", layout="wide", page_icon="🧠")
-st.markdown("""<style>.stRadio label {font-size: 18px !important; line-height: 1.6;}</style>""", unsafe_allow_html=True)
+
+# ĐOẠN CSS MỚI TÙY CHỈNH KÍCH THƯỚC CHỮ
+st.markdown("""
+    <style>
+    /* 1. Tăng kích thước chữ của Đề bài */
+    .stMarkdown p {
+        font-size: 19px !important;
+        line-height: 1.6 !important;
+    }
+    
+    /* 2. Tăng kích thước tiêu đề "Lựa chọn của em:" */
+    div[data-testid="stRadio"] > label > div > p {
+        font-size: 19px !important;
+        font-weight: bold !important;
+    }
+    
+    /* 3. Tăng kích thước chữ của các đáp án A, B, C, D */
+    div[role="radiogroup"] label p {
+        font-size: 19px !important;
+    }
+    
+    /* 4. Chỉnh cho khoảng cách giữa các đáp án thoáng hơn */
+    div[role="radiogroup"] {
+        gap: 15px !important; 
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 for key in ['logged_in', 'answered']:
     if key not in st.session_state: st.session_state[key] = False

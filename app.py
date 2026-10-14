@@ -96,7 +96,7 @@ if 'theta' not in st.session_state: st.session_state.theta = 0.0
 
 @st.cache_data
 def load_question_bank():
-    return pd.read_csv('nganhang_lop11_chuan_hoa_1000.csv', sep=',', encoding='utf-8-sig')
+    return pd.read_csv('nganhang_lop11_chuan_hoa.csv', sep=',', encoding='utf-8-sig')
 
 df = load_question_bank()
 

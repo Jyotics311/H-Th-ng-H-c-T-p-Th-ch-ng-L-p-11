@@ -255,38 +255,29 @@ with tab1:
 
 # ----------------- TAB 2: TIẾN TRÌNH HỌC TẬP -----------------
 with tab2:
-    st.markdown("### 📊 Biểu đồ Năng lực & Chẩn đoán Lỗ hổng")
+    st.markdown("### 📊 Quỹ đạo phát triển Năng lực cá nhân")
     all_logs = load_logs_from_sheet()
     
     if not all_logs.empty:
         my_logs = all_logs[all_logs['Student'] == st.session_state.user_info['name']].copy()
         
         if not my_logs.empty:
-            # SỬA TẠI ĐÂY: Thay dấu phẩy thành dấu chấm để Python hiểu được số thập phân
+            # Chuẩn hóa dữ liệu (đổi phẩy thành chấm)
             my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
             my_logs['Correct'] = pd.to_numeric(my_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
             
-            col1, col2 = st.columns(2)
-            with col1:
-                my_logs['Question_Num'] = range(1, len(my_logs) + 1)
-                fig_theta = px.line(my_logs, x='Question_Num', y='Theta_Before', 
-                                    title='Sự phát triển Năng lực theo thời gian',
-                                    markers=True, text='Correct',
-                                    labels={'Theta_Before': 'Mức Năng lực', 'Question_Num': 'Thứ tự câu hỏi'})
-                fig_theta.update_traces(textposition="bottom right")
-                fig_theta.update_xaxes(dtick=1) 
-                fig_theta.update_yaxes(range=[-3.5, 3.5]) 
-                st.plotly_chart(fig_theta, use_container_width=True)
+            # 1. BIỂU ĐỒ ĐƯỜNG TRÀN VIỀN (Không dùng chia cột nữa)
+            my_logs['Question_Num'] = range(1, len(my_logs) + 1)
+            fig_theta = px.line(my_logs, x='Question_Num', y='Theta_Before', 
+                                title='Sự phát triển Năng lực theo thời gian thực',
+                                markers=True, text='Correct',
+                                labels={'Theta_Before': 'Mức Năng lực (\u03B8)', 'Question_Num': 'Thứ tự câu hỏi'})
+            fig_theta.update_traces(textposition="bottom right", line=dict(width=3), marker=dict(size=8))
+            fig_theta.update_xaxes(dtick=1) 
+            fig_theta.update_yaxes(range=[-3.5, 3.5]) 
+            st.plotly_chart(fig_theta, use_container_width=True)
                 
-            with col2:
-                skill_data = my_logs.groupby('Skill')['Correct'].mean() * 100
-                skill_df = skill_data.reset_index()
-                skill_df.columns = ['Mã Kỹ Năng', 'Tỷ lệ đúng (%)']
-                fig_skill = px.bar(skill_df, x='Mã Kỹ Năng', y='Tỷ lệ đúng (%)', 
-                                   title='Mức độ làm chủ Kỹ năng',
-                                   color='Tỷ lệ đúng (%)', color_continuous_scale='RdYlGn')
-                st.plotly_chart(fig_skill, use_container_width=True)
-                
+            # 2. BẢNG ĐÁNH GIÁ NĂNG LỰC CỐT LÕI
             st.markdown("#### Đánh giá Năng lực Cốt lõi (GDPT 2018)")
             comp_data = my_logs.groupby('Competency').agg(Tổng_Câu=('Item_ID', 'count'), Số_Câu_Đúng=('Correct', 'sum'))
             comp_data['Độ Thành Thạo (%)'] = round((comp_data['Số_Câu_Đúng'] / comp_data['Tổng_Câu']) * 100, 1)

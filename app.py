@@ -96,10 +96,22 @@ if 'theta' not in st.session_state: st.session_state.theta = 0.0
 
 @st.cache_data
 def load_question_bank():
-    return pd.read_csv('nganhang_lop11_chuan_hoa.csv', sep=',', encoding='utf-8-sig')
+    file_name = 'nganhang_lop11_chuan_hoa.csv' # Đảm bảo tên file này giống y hệt trên GitHub của bạn
+    
+    try:
+        # Cách 1: Đọc chuẩn quốc tế (dấu phẩy), bỏ qua các dòng bị lỗi (on_bad_lines='skip')
+        df = pd.read_csv(file_name, sep=',', encoding='utf-8-sig', on_bad_lines='skip')
+        
+        # Nếu file chỉ có 1 cột (tức là đọc sai do dùng dấu chấm phẩy), ép đọc lại bằng Cách 2
+        if len(df.columns) < 5: 
+            df = pd.read_csv(file_name, sep=';', encoding='utf-8-sig', on_bad_lines='skip')
+            
+        return df
+    except Exception as e:
+        st.error(f"Lỗi đọc Ngân hàng câu hỏi: Vui lòng kiểm tra lại cấu trúc file CSV. Chi tiết lỗi: {e}")
+        return pd.DataFrame() # Trả về bảng rỗng để app không bị sập
 
 df = load_question_bank()
-
 # ==========================================
 # 4. GIAO DIỆN ĐĂNG NHẬP
 # ==========================================

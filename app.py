@@ -96,20 +96,29 @@ if 'theta' not in st.session_state: st.session_state.theta = 0.0
 
 @st.cache_data
 def load_question_bank():
-    file_name = 'nganhang_lop11_chuan_hoa.csv' # Đảm bảo tên file này giống y hệt trên GitHub của bạn
+    file_name = 'nganhang_lop11_chuan_hoa.csv'
     
     try:
-        # Cách 1: Đọc chuẩn quốc tế (dấu phẩy), bỏ qua các dòng bị lỗi (on_bad_lines='skip')
+        # 1. Đọc file CSV
         df = pd.read_csv(file_name, sep=',', encoding='utf-8-sig', on_bad_lines='skip')
-        
-        # Nếu file chỉ có 1 cột (tức là đọc sai do dùng dấu chấm phẩy), ép đọc lại bằng Cách 2
         if len(df.columns) < 5: 
             df = pd.read_csv(file_name, sep=';', encoding='utf-8-sig', on_bad_lines='skip')
+        
+        # 2. 🛡️ CHUẨN HÓA DỮ LIỆU TOÁN HỌC (XỬ LÝ LỖI TYPE-ERROR)
+        # Đổi dấu phẩy thành dấu chấm và ép kiểu về dạng Số thực (Float)
+        if 'param_a' in df.columns and 'param_b' in df.columns:
+            df['param_a'] = pd.to_numeric(df['param_a'].astype(str).str.replace(',', '.'), errors='coerce')
+            df['param_b'] = pd.to_numeric(df['param_b'].astype(str).str.replace(',', '.'), errors='coerce')
+            
+            # Xóa bỏ những câu hỏi bị lỗi trống tham số a, b để thuật toán AI không bị sập
+            df = df.dropna(subset=['param_a', 'param_b'])
             
         return df
     except Exception as e:
-        st.error(f"Lỗi đọc Ngân hàng câu hỏi: Vui lòng kiểm tra lại cấu trúc file CSV. Chi tiết lỗi: {e}")
-        return pd.DataFrame() # Trả về bảng rỗng để app không bị sập
+        st.error(f"Lỗi đọc Ngân hàng câu hỏi: {e}")
+        return pd.DataFrame()
+
+df = load_question_bank()
 
 df = load_question_bank()
 # ==========================================

@@ -205,10 +205,10 @@ with tab1:
     
     # 1. NẾU ĐÃ HOÀN THÀNH BÀI TEST
     if len(st.session_state.asked_ids) >= MAX_QUESTIONS:
-        st.success(f"🏆 CHÚC MỪNG! Em đã hoàn thành bài Test ({MAX_QUESTIONS} câu).")
+        st.success(f"Em đã hoàn thành bài Test ({MAX_QUESTIONS} câu).")
         correct_count = sum([res['x'] for res in st.session_state.history])
         st.info(f"📊 **Kết quả:** Em đã làm đúng **{correct_count}/{MAX_QUESTIONS}** câu.")
-        st.write("Em hãy sang tab **Tiến trình học tập** để xem biểu đồ chi tiết lỗ hổng kiến thức của mình nhé!")
+        st.write("Em hãy sang tab **Tiến trình học tập** để xem biểu đồ chi tiết kết quả của mình nhé!")
         
         if st.button("🔄 Bắt đầu bài Test mới", type="primary"):
             st.session_state.asked_ids = []
@@ -267,7 +267,7 @@ with tab1:
             
             # Form nộp bài
             if not st.session_state.answered:
-                if st.button("🚀 Gửi đáp án & Chẩn đoán", type="primary"):
+                if st.button("Gửi đáp án", type="primary"):
                     user_choice_letter = choice.split(".")[0]
                     correct_letter = str(q['correct_answer']).strip()
                     
@@ -297,10 +297,10 @@ with tab1:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 Chính xác!")
                 else:
-                    st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ Gợi ý từng bước bên dưới nhé!")
+                    st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ gợi ý từng bước bên dưới nhé!")
                     st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
                     
-                    with st.expander("👀 Bấm vào đây để xem Đáp án đúng "):
+                    with st.expander("👀 Bấm vào đây để xem đáp án đúng "):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                 
                 if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):
@@ -431,7 +431,7 @@ if tab3 is not None:
                             st.plotly_chart(fig_skill_t, use_container_width=True)
                         
                         # --- XEM DỮ LIỆU THÔ ---
-                        with st.expander("🔎 Xem dữ liệu thô (Raw Data)"):
+                        with st.expander("🔎 Xem chi tiết quá trình thực hiện:"):
                             st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                 else:
                     st.warning("Chưa có dữ liệu phân lớp.")

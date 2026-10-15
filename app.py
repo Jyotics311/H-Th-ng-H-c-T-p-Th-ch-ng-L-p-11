@@ -392,17 +392,35 @@ if tab3 is not None:
                     
                     if selected_student:
                         my_logs_teacher = class_logs[class_logs['Student'] == selected_student].copy()
+                        my_logs_teacher['Timestamp'] = pd.to_datetime(my_logs_teacher['Timestamp'], errors='coerce')
+                        
                         col1, col2 = st.columns(2)
+                        
+                        # --- CỘT 1: BIỂU ĐỒ ĐIỂM SỐ THEO BÀI TEST (Giống Tab Học sinh) ---
                         with col1:
-                            my_logs_teacher['Question_Num'] = range(1, len(my_logs_teacher) + 1)
-                            fig_theta_t = px.line(my_logs_teacher, x='Question_Num', y='Theta_Before', 
-                                                title=f'Tiến trình Năng lực của {selected_student}',
-                                                markers=True, text='Correct',
-                                                labels={'Theta_Before': 'Mức Năng lực', 'Question_Num': 'Thứ tự câu hỏi'})
-                            fig_theta_t.update_traces(textposition="bottom right")
-                            fig_theta_t.update_xaxes(dtick=1) 
-                            fig_theta_t.update_yaxes(range=[-3.5, 3.5])
-                            st.plotly_chart(fig_theta_t, use_container_width=True)
+                            my_logs_teacher = my_logs_teacher.sort_values('Timestamp')
+                            MAX_Q = 15
+                            my_logs_teacher['Test_Attempt'] = (np.arange(len(my_logs_teacher)) // MAX_Q) + 1
+                            
+                            test_summary_t = my_logs_teacher.groupby('Test_Attempt').agg(
+                                Thời_gian=('Timestamp', 'last'),
+                                Số_câu_đúng=('Correct', 'sum'),
+                                Tổng_câu=('Item_ID', 'count')
+                            ).reset_index()
+                            
+                            test_summary_t['Tỷ lệ đúng (%)'] = round((test_summary_t['Số_câu_đúng'] / test_summary_t['Tổng_câu']) * 100, 1)
+                            test_summary_t['Text_Hiển_thị'] = test_summary_t['Số_câu_đúng'].astype(str) + "/" + test_summary_t['Tổng_câu'].astype(str) + " câu"
+
+                            fig_score_t = px.line(test_summary_t, x='Thời_gian', y='Tỷ lệ đúng (%)', 
+                                                title=f'Sự tiến bộ của {selected_student}',
+                                                markers=True, text='Text_Hiển_thị',
+                                                labels={'Thời_gian': 'Thời gian', 'Tỷ lệ đúng (%)': 'Tỷ lệ đúng (%)'})
+                            fig_score_t.update_traces(textposition="top center", line=dict(width=3), marker=dict(size=10))
+                            fig_score_t.update_xaxes(tickformat="%d/%m\n%H:%M") 
+                            fig_score_t.update_yaxes(range=[-5, 110])
+                            st.plotly_chart(fig_score_t, use_container_width=True)
+                            
+                        # --- CỘT 2: BIỂU ĐỒ KỸ NĂNG (Giữ nguyên) ---
                         with col2:
                             skill_data_t = my_logs_teacher.groupby('Skill')['Correct'].mean() * 100
                             skill_df_t = skill_data_t.reset_index()
@@ -411,6 +429,21 @@ if tab3 is not None:
                                                title='Mức độ làm chủ Kỹ năng',
                                                color='Tỷ lệ đúng (%)', color_continuous_scale='RdYlGn')
                             st.plotly_chart(fig_skill_t, use_container_width=True)
+                        
+                        # --- NÚT ẨN: CHỨA BIỂU ĐỒ THETA DÙNG CHO LUẬN VĂN ---
+                        with st.expander("🔎 Dành cho chuyên gia: Xem Quỹ đạo năng lực IRT (Theta) và Dữ liệu thô"):
+                            # Vẽ lại biểu đồ Theta ở đây
+                            my_logs_teacher['Question_Num'] = range(1, len(my_logs_teacher) + 1)
+                            fig_theta_t = px.line(my_logs_teacher, x='Question_Num', y='Theta_Before', 
+                                                title=f'Quỹ đạo Năng lực (Theta) của thuật toán MLE',
+                                                markers=True, text='Correct',
+                                                labels={'Theta_Before': 'Mức Năng lực', 'Question_Num': 'Thứ tự câu hỏi'})
+                            fig_theta_t.update_traces(textposition="bottom right")
+                            fig_theta_t.update_xaxes(dtick=1) 
+                            fig_theta_t.update_yaxes(range=[-3.5, 3.5])
+                            st.plotly_chart(fig_theta_t, use_container_width=True)
+                            
+                            st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                         
                         with st.expander("🔎 Xem dữ liệu thô (Raw Data)"):
                             st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)

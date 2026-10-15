@@ -390,7 +390,7 @@ if tab3 is not None:
                     st.markdown("#### 2. Phân tích chi tiết Học sinh")
                     selected_student = st.selectbox("👤 Chọn học sinh:", summary_df['Student'].tolist())
                     
-       if selected_student:
+                    if selected_student:
                         my_logs_teacher = class_logs[class_logs['Student'] == selected_student].copy()
                         my_logs_teacher['Timestamp'] = pd.to_datetime(my_logs_teacher['Timestamp'], errors='coerce')
                         
@@ -433,16 +433,7 @@ if tab3 is not None:
                         # --- XEM DỮ LIỆU THÔ ---
                         with st.expander("🔎 Xem dữ liệu thô (Raw Data)"):
                             st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
-                        
-                        # --- XEM DỮ LIỆU THÔ ---
-                        with st.expander("🔎 Xem chi tiết quá trình làm bài"):
-                            st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
-                            
-                            st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
-                        
-                        with st.expander("🔎 Xem chi tiết  quá trình làm bài"):
-                            st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                 else:
                     st.warning("Chưa có dữ liệu phân lớp.")
-            else:
-                st.warning("Chưa có học sinh trường này.")
+        else:
+            st.warning("Trường học này chưa có dữ liệu học sinh.")

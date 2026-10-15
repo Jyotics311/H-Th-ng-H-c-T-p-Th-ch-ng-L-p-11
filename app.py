@@ -390,7 +390,7 @@ if tab3 is not None:
                     st.markdown("#### 2. Phân tích chi tiết Học sinh")
                     selected_student = st.selectbox("👤 Chọn học sinh:", summary_df['Student'].tolist())
                     
-                   if selected_student:
+       if selected_student:
                         my_logs_teacher = class_logs[class_logs['Student'] == selected_student].copy()
                         my_logs_teacher['Timestamp'] = pd.to_datetime(my_logs_teacher['Timestamp'], errors='coerce')
                         
@@ -429,6 +429,10 @@ if tab3 is not None:
                                                title='Mức độ làm chủ Kỹ năng',
                                                color='Tỷ lệ đúng (%)', color_continuous_scale='RdYlGn')
                             st.plotly_chart(fig_skill_t, use_container_width=True)
+                        
+                        # --- XEM DỮ LIỆU THÔ ---
+                        with st.expander("🔎 Xem dữ liệu thô (Raw Data)"):
+                            st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                         
                         # --- XEM DỮ LIỆU THÔ ---
                         with st.expander("🔎 Xem chi tiết quá trình làm bài"):

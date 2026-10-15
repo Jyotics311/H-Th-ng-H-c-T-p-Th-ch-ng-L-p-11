@@ -390,13 +390,13 @@ if tab3 is not None:
                     st.markdown("#### 2. Phân tích chi tiết Học sinh")
                     selected_student = st.selectbox("👤 Chọn học sinh:", summary_df['Student'].tolist())
                     
-                    if selected_student:
+                   if selected_student:
                         my_logs_teacher = class_logs[class_logs['Student'] == selected_student].copy()
                         my_logs_teacher['Timestamp'] = pd.to_datetime(my_logs_teacher['Timestamp'], errors='coerce')
                         
                         col1, col2 = st.columns(2)
                         
-                        # --- CỘT 1: BIỂU ĐỒ ĐIỂM SỐ THEO BÀI TEST (Giống Tab Học sinh) ---
+                        # --- CỘT 1: BIỂU ĐỒ ĐIỂM SỐ THEO BÀI TEST (Đồng bộ với Tab Học sinh) ---
                         with col1:
                             my_logs_teacher = my_logs_teacher.sort_values('Timestamp')
                             MAX_Q = 15
@@ -420,7 +420,7 @@ if tab3 is not None:
                             fig_score_t.update_yaxes(range=[-5, 110])
                             st.plotly_chart(fig_score_t, use_container_width=True)
                             
-                        # --- CỘT 2: BIỂU ĐỒ KỸ NĂNG (Giữ nguyên) ---
+                        # --- CỘT 2: BIỂU ĐỒ KỸ NĂNG ---
                         with col2:
                             skill_data_t = my_logs_teacher.groupby('Skill')['Correct'].mean() * 100
                             skill_df_t = skill_data_t.reset_index()
@@ -430,22 +430,13 @@ if tab3 is not None:
                                                color='Tỷ lệ đúng (%)', color_continuous_scale='RdYlGn')
                             st.plotly_chart(fig_skill_t, use_container_width=True)
                         
-                        # --- NÚT ẨN: CHỨA BIỂU ĐỒ THETA DÙNG CHO LUẬN VĂN ---
-                        with st.expander("🔎 Dành cho chuyên gia: Xem Quỹ đạo năng lực IRT (Theta) và Dữ liệu thô"):
-                            # Vẽ lại biểu đồ Theta ở đây
-                            my_logs_teacher['Question_Num'] = range(1, len(my_logs_teacher) + 1)
-                            fig_theta_t = px.line(my_logs_teacher, x='Question_Num', y='Theta_Before', 
-                                                title=f'Quỹ đạo Năng lực (Theta) của thuật toán MLE',
-                                                markers=True, text='Correct',
-                                                labels={'Theta_Before': 'Mức Năng lực', 'Question_Num': 'Thứ tự câu hỏi'})
-                            fig_theta_t.update_traces(textposition="bottom right")
-                            fig_theta_t.update_xaxes(dtick=1) 
-                            fig_theta_t.update_yaxes(range=[-3.5, 3.5])
-                            st.plotly_chart(fig_theta_t, use_container_width=True)
+                        # --- XEM DỮ LIỆU THÔ ---
+                        with st.expander("🔎 Xem chi tiết quá trình làm bài"):
+                            st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                             
                             st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                         
-                        with st.expander("🔎 Xem dữ liệu thô (Raw Data)"):
+                        with st.expander("🔎 Xem chi tiết  quá trình làm bài"):
                             st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                 else:
                     st.warning("Chưa có dữ liệu phân lớp.")

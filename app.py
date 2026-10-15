@@ -85,27 +85,36 @@ def update_theta_mle(theta_old, history):
 # ==========================================
 st.set_page_config(page_title="AI Thích Ứng - Lớp 11", layout="wide", page_icon="🧠")
 
-# ĐOẠN CSS MỚI TÙY CHỈNH KÍCH THƯỚC CHỮ
+# ĐOẠN CSS MỚI: ĐỒNG BỘ PHÓNG TO CHỮ TOÀN BỘ WEB
 st.markdown("""
     <style>
-    /* 1. Tăng kích thước chữ của Đề bài */
+    /* 1. Phóng to chữ mặc định của toàn bộ trang web (Sidebar, text thường, DataFrame) */
+    html, body, [class*="st-"] {
+        font-size: 18px !important;
+    }
+    
+    /* 2. Phóng to chữ trên các Tiêu đề Tab (Làm bài, Tiến trình...) */
+    button[data-baseweb="tab"] div {
+        font-size: 20px !important;
+        font-weight: bold !important;
+    }
+
+    /* 3. Phóng to chữ của Đề bài */
     .stMarkdown p {
         font-size: 19px !important;
         line-height: 1.6 !important;
     }
     
-    /* 2. Tăng kích thước tiêu đề "Lựa chọn của em:" */
+    /* 4. Phóng to tiêu đề "Lựa chọn của em:" */
     div[data-testid="stRadio"] > label > div > p {
         font-size: 19px !important;
         font-weight: bold !important;
     }
     
-    /* 3. Tăng kích thước chữ của các đáp án A, B, C, D */
+    /* 5. Phóng to chữ của các đáp án A, B, C, D và tạo khoảng cách */
     div[role="radiogroup"] label p {
         font-size: 19px !important;
     }
-    
-    /* 4. Chỉnh cho khoảng cách giữa các đáp án thoáng hơn */
     div[role="radiogroup"] {
         gap: 15px !important; 
     }
@@ -308,20 +317,37 @@ with tab2:
         my_logs = all_logs[all_logs['Student'] == st.session_state.user_info['name']].copy()
         
         if not my_logs.empty:
-            # Chuẩn hóa dữ liệu (đổi phẩy thành chấm)
+            # Chuẩn hóa dữ liệu 
             my_logs['Theta_Before'] = pd.to_numeric(my_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
             my_logs['Correct'] = pd.to_numeric(my_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+            my_logs['Timestamp'] = pd.to_datetime(my_logs['Timestamp'], errors='coerce')
             
-            # 1. BIỂU ĐỒ ĐƯỜNG TRÀN VIỀN (Không dùng chia cột nữa)
-            my_logs['Question_Num'] = range(1, len(my_logs) + 1)
-            fig_theta = px.line(my_logs, x='Question_Num', y='Theta_Before', 
-                                title='Sự phát triển Năng lực theo thời gian thực',
-                                markers=True, text='Correct',
-                                labels={'Theta_Before': 'Mức Năng lực (\u03B8)', 'Question_Num': 'Thứ tự câu hỏi'})
-            fig_theta.update_traces(textposition="bottom right", line=dict(width=3), marker=dict(size=8))
-            fig_theta.update_xaxes(dtick=1) 
-            fig_theta.update_yaxes(range=[-3.5, 3.5]) 
-            st.plotly_chart(fig_theta, use_container_width=True)
+            # --- THUẬT TOÁN MỚI: GOM NHÓM THEO TỪNG BÀI TEST (15 CÂU/TEST) ---
+            my_logs = my_logs.sort_values('Timestamp') # Sắp xếp theo thời gian
+            MAX_Q = 15
+            my_logs['Test_Attempt'] = (np.arange(len(my_logs)) // MAX_Q) + 1 # Cứ 15 câu tính là 1 lần làm bài
+            
+            test_summary = my_logs.groupby('Test_Attempt').agg(
+                Thời_gian=('Timestamp', 'last'), # Lấy thời gian lúc nộp câu cuối cùng
+                Số_câu_đúng=('Correct', 'sum'),
+                Tổng_câu=('Item_ID', 'count')
+            ).reset_index()
+            
+            # Tính phần trăm đúng
+            test_summary['Tỷ lệ đúng (%)'] = round((test_summary['Số_câu_đúng'] / test_summary['Tổng_câu']) * 100, 1)
+            # Tạo chữ hiển thị trực quan (Ví dụ: "8/15 câu")
+            test_summary['Text_Hiển_thị'] = test_summary['Số_câu_đúng'].astype(str) + "/" + test_summary['Tổng_câu'].astype(str) + " câu"
+
+            # 1. BIỂU ĐỒ ĐƯỜNG TRÀN VIỀN (Trục X: Thời gian, Trục Y: % Đúng)
+            fig_score = px.line(test_summary, x='Thời_gian', y='Tỷ lệ đúng (%)', 
+                                title='Sự tiến bộ của em qua các bài Test',
+                                markers=True, text='Text_Hiển_thị',
+                                labels={'Thời_gian': 'Thời gian nộp bài', 'Tỷ lệ đúng (%)': 'Tỷ lệ làm đúng (%)'})
+            
+            fig_score.update_traces(textposition="top center", line=dict(width=3), marker=dict(size=10))
+            fig_score.update_xaxes(tickformat="%d/%m\n%H:%M") 
+            fig_score.update_yaxes(range=[-5, 110]) # Trục Y từ 0 đến 100% (Mở rộng chút để không bị lẹm chữ)
+            st.plotly_chart(fig_score, use_container_width=True)
                 
             # 2. BẢNG ĐÁNH GIÁ NĂNG LỰC CỐT LÕI
             st.markdown("#### Đánh giá Năng lực Cốt lõi (GDPT 2018)")

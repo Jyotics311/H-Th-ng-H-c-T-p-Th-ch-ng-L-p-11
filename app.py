@@ -362,15 +362,28 @@ with tab2:
 # ----------------- TAB 3: QUẢN LÝ KẾT QUẢ -----------------
 if tab3 is not None:
     with tab3:
-        teacher_school = st.session_state.user_info['school']
+        # Chuẩn hóa tên trường của giáo viên lúc đăng nhập để khớp với dữ liệu bên dưới
+        teacher_school = str(st.session_state.user_info['school']).strip().title()
+        
         st.markdown(f"### 👨‍🏫 Bảng Điều Khiển: Trường {teacher_school}")
         all_logs = load_logs_from_sheet()
         
         if not all_logs.empty:
-            # SỬA TẠI ĐÂY: Thay dấu phẩy thành dấu chấm
+            # 1. CHUẨN HÓA DỮ LIỆU ĐỊNH DẠNG SỐ
             all_logs['Theta_Before'] = pd.to_numeric(all_logs['Theta_Before'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0.0)
             all_logs['Correct'] = pd.to_numeric(all_logs['Correct'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
             
+            # 2. CHUẨN HÓA CHUỖI VĂN BẢN (CHỐNG LỖI CAPSLOCK / KHOẢNG TRẮNG DƯ THỪA)
+            # Tên học sinh: "nguyễn văn a" -> "Nguyễn Văn A"
+            all_logs['Student'] = all_logs['Student'].astype(str).str.strip().str.title()
+            
+            # Tên trường: "THPT TRẦN KHAI NGUYÊN" -> "Thpt Trần Khai Nguyên"
+            all_logs['School'] = all_logs['School'].astype(str).str.strip().str.title()
+            
+            # Tên lớp: "11a5" -> "11A5" (Lớp thì nên in hoa toàn bộ)
+            all_logs['Class'] = all_logs['Class'].astype(str).str.strip().str.upper()
+            
+            # 3. BẮT ĐẦU LỌC DỮ LIỆU CHO TRƯỜNG CỦA GIÁO VIÊN
             school_logs = all_logs[all_logs['School'] == teacher_school].copy()
             if not school_logs.empty:
                 available_classes = sorted([c for c in school_logs['Class'].unique() if str(c).strip() != ""])
@@ -380,15 +393,26 @@ if tab3 is not None:
                     
                     st.markdown(f"#### 1. Tổng quan Lớp {selected_class}")
                     summary_df = class_logs.groupby(['Student']).agg(
-                        Số_câu_đã_làm=('Item_ID', 'count'), Số_câu_đúng=('Correct', 'sum'),
+                        Số_câu_đã_làm=('Item_ID', 'count'), 
+                        Số_câu_đúng=('Correct', 'sum'),
                         Năng_lực_hiện_tại=('Theta_Before', 'last')
                     ).reset_index()
+                    
                     summary_df['Tỷ lệ đúng (%)'] = round((summary_df['Số_câu_đúng'] / summary_df['Số_câu_đã_làm']) * 100, 1)
                     summary_df['Năng_lực_hiện_tại'] = round(summary_df['Năng_lực_hiện_tại'], 2)
+                    
+                    # 4. XÓA DẤU GẠCH DƯỚI ĐỂ GIAO DIỆN BẢNG ĐẸP MẮT
+                    summary_df = summary_df.rename(columns={
+                        'Student': 'Họ và tên',
+                        'Số_câu_đã_làm': 'Số câu đã làm',
+                        'Số_câu_đúng': 'Số câu đúng',
+                        'Năng_lực_hiện_tại': 'Năng lực (Theta) hiện tại'
+                    })
+                    
                     st.dataframe(summary_df, use_container_width=True)
                     
                     st.markdown("#### 2. Phân tích chi tiết Học sinh")
-                    selected_student = st.selectbox("👤 Chọn học sinh:", summary_df['Student'].tolist())
+                    selected_student = st.selectbox("👤 Chọn học sinh:", summary_df['Họ và tên'].tolist())
                     
                     if selected_student:
                         my_logs_teacher = class_logs[class_logs['Student'] == selected_student].copy()
@@ -396,7 +420,7 @@ if tab3 is not None:
                         
                         col1, col2 = st.columns(2)
                         
-                        # --- CỘT 1: BIỂU ĐỒ ĐIỂM SỐ THEO BÀI TEST (Đồng bộ với Tab Học sinh) ---
+                        # --- CỘT 1: BIỂU ĐỒ ĐIỂM SỐ THEO BÀI TEST ---
                         with col1:
                             my_logs_teacher = my_logs_teacher.sort_values('Timestamp')
                             MAX_Q = 15
@@ -431,9 +455,9 @@ if tab3 is not None:
                             st.plotly_chart(fig_skill_t, use_container_width=True)
                         
                         # --- XEM DỮ LIỆU THÔ ---
-                        with st.expander("🔎 Xem chi tiết quá trình thực hiện:"):
+                        with st.expander("🔎 Xem chi tiết quá trình:"):
                             st.dataframe(my_logs_teacher.sort_values(by='Timestamp', ascending=False), use_container_width=True)
                 else:
                     st.warning("Chưa có dữ liệu phân lớp.")
-        else:
-            st.warning("Trường học này chưa có dữ liệu học sinh.")
+            else:
+                st.warning("Trường học này chưa có dữ liệu học sinh.")

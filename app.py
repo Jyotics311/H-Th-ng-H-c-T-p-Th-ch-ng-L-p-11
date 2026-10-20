@@ -60,7 +60,7 @@ def fisher_information(theta, a, b):
     return (a ** 2) * p * (1 - p)
 
 def update_theta_mle(theta_old, history):
-    if len(history) < 3:
+    if len(history) < 4:
         return np.clip(theta_old + (0.5 if history[-1]['x'] == 1 else -0.5), -3.0, 3.0)
 
     num, den = 0.0, 0.0

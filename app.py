@@ -284,18 +284,18 @@ with tab1:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 **Chính xác!** Em đã giải quyết đúng bài toán.")
                 else:
-                    st.error("❌ **Rất tiếc, đáp án chưa chính xác.** Em hãy xem gợi ý phân tầng bên dưới để tự điều chỉnh tư duy nhé:")
+                    st.error("❌ **Rất tiếc, đáp án chưa chính xác.** Em hãy xem gợi ý bên dưới để tự điều chỉnh nhé:")
                     
                     # BƯỚC 1: Hiển thị gợi mở tư duy (ZPD)
-                    st.warning(f"💡 **GỢI Ý BƯỚC 1 (Gợi mở tư duy):**\n\n{q['scaffold_step1']}")
+                    st.warning(f"**GỢI Ý BƯỚC 1 (Gợi mở tư duy):**\n\n{q['scaffold_step1']}")
                     
                     # BƯỚC 2: Học sinh chủ động mở nếu cần hỗ trợ thêm
                     with st.expander("🔍 Em vẫn gặp khó khăn? Bấm vào đây để xem Gợi ý công thức (Bước 2)"):
-                        st.info(f"📐 **GỢI Ý BƯỚC 2 (Định hướng quy tắc toán học):**\n\n{q['scaffold_step2']}")
-                        st.caption("⚠️ *Hãy cố gắng vận dụng công thức này để tự tính toán lại trước khi xem đáp án nhé.*")
+                        st.info(f" **GỢI Ý BƯỚC 2 (Định hướng quy tắc toán học):**\n\n{q['scaffold_step2']}")
+                        st.caption(" *Hãy cố gắng vận dụng công thức này để tự tính toán lại trước khi xem đáp án nhé.*")
                     
                     # ĐỐI CHIẾU ĐÁP ÁN: Đặt riêng trong expander
-                    with st.expander("👀 Bấm vào đây để đối chiếu đáp án đúng"):
+                    with st.expander("Bấm vào đây để đối chiếu đáp án đúng"):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                 
                 # Nút chuyển câu hỏi tiếp theo

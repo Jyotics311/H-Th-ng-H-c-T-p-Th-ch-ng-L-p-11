@@ -254,21 +254,29 @@ with tab1:
                     st.session_state.answered = True
                     st.rerun()
 
-            if st.session_state.answered:
+             if st.session_state.answered:
                 if st.session_state.last_correct == 1:
-                    st.success("🎉 Chính xác!")
+                    st.success("🎉 **Chính xác!** Em đã giải quyết đúng bài toán.")
                 else:
-                    st.error("❌ Rất tiếc, đáp án chưa chính xác. Em hãy đọc kỹ gợi ý từng bước bên dưới nhé!")
-                    st.warning(f"💡 **GỢI Ý KHẮC PHỤC:**\n- **Bước 1:** {q['scaffold_step1']}\n- **Bước 2:** {q['scaffold_step2']}")
+                    st.error("❌ **Rất tiếc, đáp án chưa chính xác.** Em hãy xem gợi ý phân tầng bên dưới để tự điều chỉnh tư duy nhé:")
                     
-                    with st.expander("👀 Bấm vào đây để xem đáp án đúng "):
+                    # BƯỚC 1: Hiển thị ngay lập tức bằng st.warning để gợi mở tư duy mô hình hóa
+                    st.warning(f"💡 **GỢI Ý BƯỚC 1 (Gợi mở tư duy):**\n\n{q['scaffold_step1']}")
+                    
+                    # BƯỚC 2: Đặt trong st.expander - Học sinh tự chủ bấm mở nếu Bước 1 chưa đủ
+                    with st.expander("🔍 Em vẫn gặp khó khăn? Bấm vào đây để xem Gợi ý công thức (Bước 2)"):
+                        st.info(f"📐 **GỢI Ý BƯỚC 2 (Định hướng quy tắc toán học):**\n\n{q['scaffold_step2']}")
+                        st.caption("⚠️ *Hãy cố gắng vận dụng công thức này để tự tính toán lại trước khi xem đáp án nhé.*")
+                    
+                    # ĐÁP ÁN: Đặt riêng trong expander cấp tiếp theo để bảo toàn tính thử thách
+                    with st.expander("👀 Bấm vào đây để đối chiếu đáp án đúng"):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                 
-                if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary"):
+                # Nút chuyển tiếp câu hỏi
+                if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary", use_container_width=True):
                     st.session_state.answered = False
                     st.session_state.current_item = None
                     st.rerun()
-
 # ----------------- TAB 2: TIẾN TRÌNH HỌC TẬP -----------------
 with tab2:
     st.markdown("### 📊 Quỹ đạo phát triển Năng lực cá nhân")

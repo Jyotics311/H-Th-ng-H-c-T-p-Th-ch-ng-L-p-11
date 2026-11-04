@@ -253,8 +253,7 @@ with tab1:
                     st.session_state.theta = update_theta_mle(st.session_state.theta, st.session_state.history)
                     st.session_state.answered = True
                     st.rerun()
-
-             if st.session_state.answered:
+        if st.session_state.answered:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 **Chính xác!** Em đã giải quyết đúng bài toán.")
                 else:

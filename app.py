@@ -182,7 +182,7 @@ def format_latex_option(text):
     # Nếu đã bọc sẵn $ hoặc là số thập phân thì giữ nguyên
     return text_str
 # 2. Cập nhật cách tạo display_options trong TAB 1:
-options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
+options_dict = {'A': q['opt_a'], 'B': q['opt_b'], 'C': q['opt_c'], 'D': q['opt_d']}
 # Bọc từng phương án qua hàm format_latex_option:
 display_options = [
     f"A. {format_latex_option(options_dict['A'])}",

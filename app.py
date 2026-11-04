@@ -73,11 +73,12 @@ def update_theta_mle(theta_old, history):
 
 def format_latex_option(text):
     text_str = str(text).strip()
-    # Tự động chuyển đổi phân số x/y thành công thức LaTeX \frac{x}{y}
+    # Nếu là phân số dạng a/b (ví dụ 6/11, 15/143)
     if "/" in text_str and not text_str.startswith("$"):
         parts = text_str.replace("'", "").split("/")
         if len(parts) == 2 and parts[0].strip().lstrip('-').isdigit() and parts[1].strip().isdigit():
-            return rf"$\frac{{{parts[0].strip()}}}{{{parts[1].strip()}}}$"
+            # Thêm \displaystyle để phân số to đều và rõ nét
+            return rf"$\displaystyle \frac{{{parts[0].strip()}}}{{{parts[1].strip()}}}$"
     return text_str
 
 # ==========================================

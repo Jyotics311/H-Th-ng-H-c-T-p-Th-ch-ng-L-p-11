@@ -290,7 +290,7 @@ with tab1:
                     st.warning(f"**GỢI Ý BƯỚC 1 (Gợi mở tư duy):**\n\n{q['scaffold_step1']}")
                     
                     # BƯỚC 2: Học sinh chủ động mở nếu cần hỗ trợ thêm
-                    with st.expander("🔍 Em vẫn gặp khó khăn? Bấm vào đây để xem Gợi ý công thức (Bước 2)"):
+                    with st.expander(" Em vẫn gặp khó khăn? Bấm vào đây để xem Gợi ý công thức (Bước 2)"):
                         st.info(f" **GỢI Ý BƯỚC 2 (Định hướng quy tắc toán học):**\n\n{q['scaffold_step2']}")
                         st.caption(" *Hãy cố gắng vận dụng công thức này để tự tính toán lại trước khi xem đáp án nhé.*")
                     

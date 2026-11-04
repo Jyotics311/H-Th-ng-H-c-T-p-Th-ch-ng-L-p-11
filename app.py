@@ -50,7 +50,7 @@ def load_logs_from_sheet():
         return pd.DataFrame()
 
 # ==========================================
-# 2. THUẬT TOÁN AI (IRT & FISHER)
+# 2. THUẬT TOÁN AI (IRT & FISHER) & FORMAT LATEX
 # ==========================================
 def p_irt(theta, a, b):
     return 1 / (1 + np.exp(np.clip(-a * (theta - b), -10, 10)))
@@ -70,6 +70,15 @@ def update_theta_mle(theta_old, history):
         den += (res['a'] ** 2) * p * (1 - p)
     
     return np.clip(theta_old + (num / den), -3.0, 3.0) if den > 0 else theta_old
+
+def format_latex_option(text):
+    text_str = str(text).strip()
+    # Tự động chuyển đổi phân số x/y thành công thức LaTeX \frac{x}{y}
+    if "/" in text_str and not text_str.startswith("$"):
+        parts = text_str.replace("'", "").split("/")
+        if len(parts) == 2 and parts[0].strip().lstrip('-').isdigit() and parts[1].strip().isdigit():
+            return rf"$\frac{{{parts[0].strip()}}}{{{parts[1].strip()}}}$"
+    return text_str
 
 # ==========================================
 # 3. KHỞI TẠO ỨNG DỤNG
@@ -172,25 +181,6 @@ if st.sidebar.button("🚪 Đăng xuất", use_container_width=True):
 tabs = st.tabs(["📖 Làm bài", "📈 Tiến trình học tập"]) if st.session_state.user_info['role'] == "Học sinh" else st.tabs(["📖 Làm bài", "📈 Tiến trình học tập", "👨‍🏫 Kết quả học tập"])
 tab1, tab2 = tabs[0], tabs[1]
 tab3 = tabs[2] if len(tabs) == 3 else None
-def format_latex_option(text):
-    text_str = str(text).strip()
-    # Nếu là phân số dạng a/b (ví dụ 6/11, 15/143)
-    if "/" in text_str and not text_str.startswith("$"):
-        parts = text_str.replace("'", "").split("/") # loại bỏ dấu nháy rác nếu có
-        if len(parts) == 2 and parts[0].strip().lstrip('-').isdigit() and parts[1].strip().isdigit():
-            return f"$\\frac{{{parts[0].strip()}}}{{{parts[1].strip()}}}$"
-    # Nếu đã bọc sẵn $ hoặc là số thập phân thì giữ nguyên
-    return text_str
-# 2. Cập nhật cách tạo display_options trong TAB 1:
-options_dict = {'A': q['opt_a'], 'B': q['opt_b'], 'C': q['opt_c'], 'D': q['opt_d']}
-# Bọc từng phương án qua hàm format_latex_option:
-display_options = [
-    f"A. {format_latex_option(options_dict['A'])}",
-    f"B. {format_latex_option(options_dict['B'])}",
-    f"C. {format_latex_option(options_dict['C'])}",
-    f"D. {format_latex_option(options_dict['D'])}"
-]
-choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
 
 # ----------------- TAB 1: LÀM BÀI -----------------
 with tab1:
@@ -242,14 +232,25 @@ with tab1:
         elif q is not None:
             st.markdown(f"### Câu hỏi:\n{q['question_text']}")
             
-            options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
-            display_options = [f"A. {options_dict['A']}", f"B. {options_dict['B']}", f"C. {options_dict['C']}", f"D. {options_dict['D']}"]
+            options_dict = {
+                'A': q['option_a'],
+                'B': q['option_b'],
+                'C': q['option_c'],
+                'D': q['option_d']
+            }
             
-            choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
+            # Sử dụng format_func để hiển thị công thức phân số LaTeX đẹp mắt
+            choice = st.radio(
+                "Lựa chọn của em:",
+                options=['A', 'B', 'C', 'D'],
+                format_func=lambda opt: f"**{opt}.** {format_latex_option(options_dict[opt])}",
+                key=f"radio_{q['item_id']}",
+                disabled=st.session_state.answered
+            )
             
             if not st.session_state.answered:
-                if st.button("Gửi đáp án", type="primary"):
-                    user_choice_letter = choice.split(".")[0]
+                if st.button("🚀 Gửi đáp án", type="primary"):
+                    user_choice_letter = choice  # Lấy trực tiếp ký tự 'A', 'B', 'C', 'D'
                     correct_letter = str(q['correct_answer']).strip()
                     
                     x = 1 if user_choice_letter == correct_letter else 0
@@ -258,12 +259,17 @@ with tab1:
                     st.session_state.last_skill = q['skill_id'] 
                     
                     interaction = {
-                        'Student': st.session_state.user_info['name'], 'Class': st.session_state.user_info['class'],
-                        'School': st.session_state.user_info['school'], 'Email': st.session_state.user_info['email'],
-                        'Item_ID': q['item_id'], 'Skill': q['skill_id'],
-                        'Competency': q['competency'], 'Level': q['level'],
+                        'Student': st.session_state.user_info['name'], 
+                        'Class': st.session_state.user_info['class'],
+                        'School': st.session_state.user_info['school'], 
+                        'Email': st.session_state.user_info['email'],
+                        'Item_ID': q['item_id'], 
+                        'Skill': q['skill_id'],
+                        'Competency': q['competency'], 
+                        'Level': q['level'],
                         'Theta_Before': round(st.session_state.theta, 3),
-                        'Correct': x, 'Timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
+                        'Correct': x, 
+                        'Timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
                     }
                     save_log_to_sheet(interaction)
                     
@@ -272,29 +278,31 @@ with tab1:
                     st.session_state.theta = update_theta_mle(st.session_state.theta, st.session_state.history)
                     st.session_state.answered = True
                     st.rerun()
-        if st.session_state.answered:
+
+            if st.session_state.answered:
                 if st.session_state.last_correct == 1:
                     st.success("🎉 **Chính xác!** Em đã giải quyết đúng bài toán.")
                 else:
                     st.error("❌ **Rất tiếc, đáp án chưa chính xác.** Em hãy xem gợi ý phân tầng bên dưới để tự điều chỉnh tư duy nhé:")
                     
-                    # BƯỚC 1: Hiển thị ngay lập tức bằng st.warning để gợi mở tư duy mô hình hóa
+                    # BƯỚC 1: Hiển thị gợi mở tư duy (ZPD)
                     st.warning(f"💡 **GỢI Ý BƯỚC 1 (Gợi mở tư duy):**\n\n{q['scaffold_step1']}")
                     
-                    # BƯỚC 2: Đặt trong st.expander - Học sinh tự chủ bấm mở nếu Bước 1 chưa đủ
+                    # BƯỚC 2: Học sinh chủ động mở nếu cần hỗ trợ thêm
                     with st.expander("🔍 Em vẫn gặp khó khăn? Bấm vào đây để xem Gợi ý công thức (Bước 2)"):
                         st.info(f"📐 **GỢI Ý BƯỚC 2 (Định hướng quy tắc toán học):**\n\n{q['scaffold_step2']}")
                         st.caption("⚠️ *Hãy cố gắng vận dụng công thức này để tự tính toán lại trước khi xem đáp án nhé.*")
                     
-                    # ĐÁP ÁN: Đặt riêng trong expander cấp tiếp theo để bảo toàn tính thử thách
+                    # ĐỐI CHIẾU ĐÁP ÁN: Đặt riêng trong expander
                     with st.expander("👀 Bấm vào đây để đối chiếu đáp án đúng"):
                         st.markdown(f"**Đáp án chính xác là: {q['correct_answer']}**")
                 
-                # Nút chuyển tiếp câu hỏi
+                # Nút chuyển câu hỏi tiếp theo
                 if st.button("👉 Tiếp tục sang câu tiếp theo", type="primary", use_container_width=True):
                     st.session_state.answered = False
                     st.session_state.current_item = None
                     st.rerun()
+
 # ----------------- TAB 2: TIẾN TRÌNH HỌC TẬP -----------------
 with tab2:
     st.markdown("### 📊 Quỹ đạo phát triển Năng lực cá nhân")

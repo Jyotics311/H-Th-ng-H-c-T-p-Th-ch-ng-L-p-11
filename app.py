@@ -172,6 +172,25 @@ if st.sidebar.button("🚪 Đăng xuất", use_container_width=True):
 tabs = st.tabs(["📖 Làm bài", "📈 Tiến trình học tập"]) if st.session_state.user_info['role'] == "Học sinh" else st.tabs(["📖 Làm bài", "📈 Tiến trình học tập", "👨‍🏫 Kết quả học tập"])
 tab1, tab2 = tabs[0], tabs[1]
 tab3 = tabs[2] if len(tabs) == 3 else None
+def format_latex_option(text):
+    text_str = str(text).strip()
+    # Nếu là phân số dạng a/b (ví dụ 6/11, 15/143)
+    if "/" in text_str and not text_str.startswith("$"):
+        parts = text_str.replace("'", "").split("/") # loại bỏ dấu nháy rác nếu có
+        if len(parts) == 2 and parts[0].strip().lstrip('-').isdigit() and parts[1].strip().isdigit():
+            return f"$\\frac{{{parts[0].strip()}}}{{{parts[1].strip()}}}$"
+    # Nếu đã bọc sẵn $ hoặc là số thập phân thì giữ nguyên
+    return text_str
+# 2. Cập nhật cách tạo display_options trong TAB 1:
+options_dict = {'A': q['option_a'], 'B': q['option_b'], 'C': q['option_c'], 'D': q['option_d']}
+# Bọc từng phương án qua hàm format_latex_option:
+display_options = [
+    f"A. {format_latex_option(options_dict['A'])}",
+    f"B. {format_latex_option(options_dict['B'])}",
+    f"C. {format_latex_option(options_dict['C'])}",
+    f"D. {format_latex_option(options_dict['D'])}"
+]
+choice = st.radio("Lựa chọn của em:", display_options, key=f"radio_{q['item_id']}", disabled=st.session_state.answered)
 
 # ----------------- TAB 1: LÀM BÀI -----------------
 with tab1:
